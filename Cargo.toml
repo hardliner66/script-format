@@ -1,0 +1,10 @@
+[package]
+name = "script-format"
+version = "0.1.0"
+edition = "2021"
+description = "A simple DSL to format data via rhai scripting"
+license-file = "LICENSE"
+repository = "https://github.com/hardliner66/script-format"
+
+[dependencies]
+rhai = "1.20.1"
