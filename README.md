@@ -24,6 +24,9 @@ There are also a two more conveniences, namely `NL` and `IND`.
 Theres also functions with the same name that take a number and return the value that amount of time. So if you want to
 indent something by 3 levels, you can just write `IND(3)`.
 
+If your indentation is different than four spaces, you can set the string for a single indentation level with the
+function `SET_INDENT`.
+
 ## Quick Start
 In order to use the DSL you need create a `FormattingEngine` and register all types you want to work with.
 
