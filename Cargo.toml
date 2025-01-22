@@ -7,4 +7,11 @@ license-file = "LICENSE"
 repository = "https://github.com/hardliner66/script-format"
 
 [dependencies]
+anyhow = "1.0.95"
+clap = { version = "4.5.27", features = ["derive"] }
 rhai = { version = "1.20.1", features = ["internals"] }
+rsn = "0.2.0"
+serde-value = "0.7.0"
+serde_json = "1.0.137"
+serde_yaml = "0.9.34"
+toml = "0.8.19"

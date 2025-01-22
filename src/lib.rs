@@ -412,6 +412,72 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
         (bool, bool)
     );
 
+    macro_rules! register_value_right {
+        ($($A: ty),*) => {
+            $(
+            {
+                let messages = messages.clone();
+                engine.register_fn("++", move |a: $A, b: serde_value::Value| {
+                    messages.borrow_mut().push(format!("{a}"));
+                    messages
+                        .borrow_mut()
+                        .push(serde_json::to_string(&b).unwrap());
+                });
+            }
+            )*
+        };
+    }
+
+    macro_rules! register_value_left {
+        ($($B: ty),*) => {
+            $(
+            {
+                let messages = messages.clone();
+                engine.register_fn("++", move |a: serde_value::Value, b: $B| {
+                    messages
+                        .borrow_mut()
+                        .push(serde_json::to_string(&a).unwrap());
+                    messages.borrow_mut().push(format!("{b}"));
+                });
+            }
+            )*
+        };
+    }
+
+    macro_rules! register_value {
+        ($($T: ty),*) => {
+            $(
+            register_value_left!($T);
+            register_value_right!($T);
+            )*
+        };
+    }
+
+    {
+        let messages = messages.clone();
+        engine.register_fn("-", move |msg: serde_value::Value| {
+            messages
+                .borrow_mut()
+                .push(serde_json::to_string(&msg).unwrap());
+        });
+    }
+
+    register_value!(
+        &str, String, char, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128
+    );
+
+    {
+        let messages = messages.clone();
+        engine.register_fn("++", move |a: serde_value::Value, b: serde_value::Value| {
+            messages
+                .borrow_mut()
+                .push(serde_json::to_string(&a).unwrap());
+            messages
+                .borrow_mut()
+                .push(serde_json::to_string(&b).unwrap());
+        });
+    }
+
     // macro_rules! register_comparison {
     //     ($(($A: ty, $B: ty, $C: ty)),*) => {
     //         $(
