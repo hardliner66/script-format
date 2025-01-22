@@ -1,10 +1,14 @@
-use std::any::TypeId;
 use std::cell::RefCell;
+use std::ops::DerefMut;
+use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
+use std::{any::TypeId, ops::Deref};
 
-use rhai::packages::{CorePackage, Package};
-use rhai::{Array, Dynamic, Engine, EvalAltResult, ImmutableString, Map, FLOAT, INT};
+use rhai::{
+    packages::{CorePackage, Package},
+    Array, Dynamic, Engine, EvalAltResult, ImmutableString, Map, Scope, Variant, FLOAT, INT,
+};
 
 type ScriptResult<T> = Result<T, Box<EvalAltResult>>;
 
@@ -177,10 +181,10 @@ fn script_array_contains(arr: Array, v: &Dynamic) -> bool {
         .any(|ele| script_value_equals(ele, v.clone()).unwrap_or_default())
 }
 
-#[macro_export]
 macro_rules! register_vec {
-    ($T: ty) => {
-        engine
+    ($engine: expr, ($($T: ty),*)) => {
+        $(
+        $engine
             .register_type::<Vec<$T>>()
             .register_fn("len", |v: Vec<$T>| v.len())
             .register_iterator::<Vec<$T>>()
@@ -188,12 +192,12 @@ macro_rules! register_vec {
             .register_iterator::<Vec<$T>>()
             .register_iterator::<&Vec<&$T>>()
             .register_indexer_get(|v: &mut Vec<$T>, i: i64| v[usize::try_from(i).unwrap()].clone());
+        )*
     };
 }
 
-#[macro_export]
 macro_rules! register_options {
-    ($engine: ident, ($($T: ty),*)) => {
+    ($engine: expr, ($($T: ty),*)) => {
         $(
         $engine
             .register_fn("is_some", script_is_some::<$T>)
@@ -203,8 +207,148 @@ macro_rules! register_options {
     };
 }
 
+pub struct UntypedFormattingEngine {
+    engine: Engine,
+    messages: Rc<RefCell<Vec<String>>>,
+}
+
+impl Deref for UntypedFormattingEngine {
+    type Target = Engine;
+
+    fn deref(&self) -> &Self::Target {
+        &self.engine
+    }
+}
+
+impl DerefMut for UntypedFormattingEngine {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.engine
+    }
+}
+
+impl UntypedFormattingEngine {
+    #[must_use]
+    pub fn new(debug: bool) -> Self {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        let engine = build_engine(messages.clone(), debug);
+        Self { engine, messages }
+    }
+
+    pub fn register_type<T: Variant + Clone>(&mut self) -> &mut Self {
+        self.engine.register_type::<T>();
+        register_options!(self.engine, (T));
+        register_vec!(self.engine, (T));
+        self
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn format(
+        &mut self,
+        name: &str,
+        data: impl Variant + Clone,
+        script: &str,
+    ) -> ScriptResult<String> {
+        let mut scope = Scope::new();
+        scope.push_constant(name, data);
+
+        self.messages.borrow_mut().clear();
+        self.engine.run_with_scope(&mut scope, script)?;
+
+        Ok(self.messages.borrow().join(""))
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn format_from_file<P: AsRef<Path>>(
+        &mut self,
+        name: &str,
+        data: impl Variant + Clone,
+        script: P,
+    ) -> ScriptResult<String> {
+        let mut scope = Scope::new();
+        scope.push_constant(name, data);
+
+        self.messages.borrow_mut().clear();
+        self.engine
+            .run_file_with_scope(&mut scope, script.as_ref().to_path_buf())?;
+
+        Ok(self.messages.borrow().join(""))
+    }
+}
+
+pub struct FormattingEngine<DataType: Variant + Clone> {
+    engine: Engine,
+    messages: Rc<RefCell<Vec<String>>>,
+    _phantom: std::marker::PhantomData<DataType>,
+}
+
+impl<DataType: Variant + Clone> Deref for FormattingEngine<DataType> {
+    type Target = Engine;
+
+    fn deref(&self) -> &Self::Target {
+        &self.engine
+    }
+}
+
+impl<DataType: Variant + Clone> DerefMut for FormattingEngine<DataType> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.engine
+    }
+}
+
+impl<DataType: Variant + Clone> FormattingEngine<DataType> {
+    #[must_use]
+    pub fn new(debug: bool) -> Self {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        let engine = build_engine(messages.clone(), debug);
+        let mut engine = Self {
+            engine,
+            messages,
+            _phantom: std::marker::PhantomData,
+        };
+
+        engine.register_type::<DataType>();
+
+        engine
+    }
+
+    pub fn register_type<T: Variant + Clone>(&mut self) -> &mut Self {
+        self.engine.register_type::<T>();
+        register_options!(self.engine, (T));
+        register_vec!(self.engine, (T));
+        self
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn format(&mut self, name: &str, data: DataType, script: &str) -> ScriptResult<String> {
+        let mut scope = Scope::new();
+        scope.push_constant(name, data);
+
+        self.messages.borrow_mut().clear();
+        self.engine.run_with_scope(&mut scope, script)?;
+
+        Ok(self.messages.borrow().join(""))
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn format_from_file<P: AsRef<Path>>(
+        &mut self,
+        name: &str,
+        data: DataType,
+        script: P,
+    ) -> ScriptResult<String> {
+        let mut scope = Scope::new();
+        scope.push_constant(name, data);
+
+        self.messages.borrow_mut().clear();
+        self.engine
+            .run_file_with_scope(&mut scope, script.as_ref().to_path_buf())?;
+
+        Ok(self.messages.borrow().join(""))
+    }
+}
+
 #[allow(clippy::too_many_lines)]
-pub fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
+fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
     let mut engine = Engine::new();
     engine.set_max_expr_depths(128, 64);
 
@@ -212,7 +356,7 @@ pub fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
 
     engine.register_global_module(package.as_shared_module());
 
-    let indent = Rc::new(RefCell::new(" ".to_owned()));
+    let indent = Rc::new(RefCell::new("    ".to_owned()));
 
     let v = indent.clone();
 
