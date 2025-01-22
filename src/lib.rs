@@ -207,12 +207,12 @@ macro_rules! register_options {
     };
 }
 
-pub struct UntypedFormattingEngine {
+pub struct FormattingEngine {
     engine: Engine,
     messages: Rc<RefCell<Vec<String>>>,
 }
 
-impl Deref for UntypedFormattingEngine {
+impl Deref for FormattingEngine {
     type Target = Engine;
 
     fn deref(&self) -> &Self::Target {
@@ -220,95 +220,18 @@ impl Deref for UntypedFormattingEngine {
     }
 }
 
-impl DerefMut for UntypedFormattingEngine {
+impl DerefMut for FormattingEngine {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.engine
     }
 }
 
-impl UntypedFormattingEngine {
+impl FormattingEngine {
     #[must_use]
     pub fn new(debug: bool) -> Self {
         let messages = Rc::new(RefCell::new(Vec::new()));
         let engine = build_engine(messages.clone(), debug);
         Self { engine, messages }
-    }
-
-    pub fn register_type<T: Variant + Clone>(&mut self) -> &mut Self {
-        self.engine.register_type::<T>();
-        register_options!(self.engine, (T));
-        register_vec!(self.engine, (T));
-        self
-    }
-
-    #[allow(clippy::missing_errors_doc)]
-    pub fn format(
-        &mut self,
-        name: &str,
-        data: impl Variant + Clone,
-        script: &str,
-    ) -> ScriptResult<String> {
-        let mut scope = Scope::new();
-        scope.push_constant(name, data);
-
-        self.messages.borrow_mut().clear();
-        self.engine.run_with_scope(&mut scope, script)?;
-
-        Ok(self.messages.borrow().join(""))
-    }
-
-    #[allow(clippy::missing_errors_doc)]
-    pub fn format_from_file<P: AsRef<Path>>(
-        &mut self,
-        name: &str,
-        data: impl Variant + Clone,
-        script: P,
-    ) -> ScriptResult<String> {
-        let mut scope = Scope::new();
-        scope.push_constant(name, data);
-
-        self.messages.borrow_mut().clear();
-        self.engine
-            .run_file_with_scope(&mut scope, script.as_ref().to_path_buf())?;
-
-        Ok(self.messages.borrow().join(""))
-    }
-}
-
-pub struct FormattingEngine<DataType: Variant + Clone> {
-    engine: Engine,
-    messages: Rc<RefCell<Vec<String>>>,
-    _phantom: std::marker::PhantomData<DataType>,
-}
-
-impl<DataType: Variant + Clone> Deref for FormattingEngine<DataType> {
-    type Target = Engine;
-
-    fn deref(&self) -> &Self::Target {
-        &self.engine
-    }
-}
-
-impl<DataType: Variant + Clone> DerefMut for FormattingEngine<DataType> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.engine
-    }
-}
-
-impl<DataType: Variant + Clone> FormattingEngine<DataType> {
-    #[must_use]
-    pub fn new(debug: bool) -> Self {
-        let messages = Rc::new(RefCell::new(Vec::new()));
-        let engine = build_engine(messages.clone(), debug);
-        let mut engine = Self {
-            engine,
-            messages,
-            _phantom: std::marker::PhantomData,
-        };
-
-        engine.register_type::<DataType>();
-
-        engine
     }
 
     pub fn register_type<T: Variant + Clone>(&mut self) -> &mut Self {
@@ -340,7 +263,12 @@ impl<DataType: Variant + Clone> FormattingEngine<DataType> {
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub fn format(&mut self, name: &str, data: DataType, script: &str) -> ScriptResult<String> {
+    pub fn format(
+        &mut self,
+        name: &str,
+        data: impl Variant + Clone,
+        script: &str,
+    ) -> ScriptResult<String> {
         let mut scope = Scope::new();
         scope.push_constant("NL", "\n");
         scope.push_constant(name, data);
@@ -352,7 +280,7 @@ impl<DataType: Variant + Clone> FormattingEngine<DataType> {
     pub fn format_from_file<P: AsRef<Path>>(
         &mut self,
         name: &str,
-        data: DataType,
+        data: impl Variant + Clone,
         script: P,
     ) -> ScriptResult<String> {
         let mut scope = Scope::new();

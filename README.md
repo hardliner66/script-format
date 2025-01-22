@@ -25,7 +25,6 @@ Theres also functions with the same name that take a number and return the value
 indent something by 3 levels, you can just write `IND(3)`.
 
 ## Quick Start
-In order to use the DSL you need create a `FormattingEngine<T>` where T is the main type you want to format.
+In order to use the DSL you need create a `FormattingEngine` and register all types you want to work with.
 
-If you don't have a single main type you can use the `UntypedFormattingEngine` instead, but there you have to register
-all the types you need yourself, otherwise Rhai wont be able to work with your data structures.
+After that, you can just call the appropriate format function to format your data.
