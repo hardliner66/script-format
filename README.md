@@ -21,7 +21,7 @@ There are also a two more conveniences, namely `NL` and `IND`.
 - `NL` is a constant holding the newline character (`\r`).
 - `IND` is a constant holding the indentation string (Default: four spaces).
 
-Theres also functions with the same name that take a number and return the value that amount of time. So if you want to
+There are also functions with the same name that take a number and return the value that amount of time. So if you want to
 indent something by 3 levels, you can just write `IND(3)`.
 
 If your indentation is different than four spaces, you can set the string for a single indentation level with the
