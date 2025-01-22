@@ -243,6 +243,8 @@ impl FormattingEngine {
 
     #[allow(clippy::missing_errors_doc)]
     pub fn format_with_scope(&mut self, scope: &mut Scope, script: &str) -> ScriptResult<String> {
+        scope.push_constant("NL", "\n");
+
         self.messages.borrow_mut().clear();
         self.engine.run_with_scope(scope, script)?;
 
@@ -255,6 +257,8 @@ impl FormattingEngine {
         scope: &mut Scope,
         script: P,
     ) -> ScriptResult<String> {
+        scope.push_constant("NL", "\n");
+
         self.messages.borrow_mut().clear();
         self.engine
             .run_file_with_scope(scope, script.as_ref().to_path_buf())?;
@@ -270,7 +274,6 @@ impl FormattingEngine {
         script: &str,
     ) -> ScriptResult<String> {
         let mut scope = Scope::new();
-        scope.push_constant("NL", "\n");
         scope.push_constant(name, data);
 
         self.format_with_scope(&mut scope, script)
