@@ -10,7 +10,7 @@ use rhai::{
     Array, Dynamic, Engine, EvalAltResult, ImmutableString, Map, Scope, Variant, FLOAT, INT,
 };
 
-type ScriptResult<T> = Result<T, Box<EvalAltResult>>;
+pub type ScriptResult<T> = Result<T, Box<EvalAltResult>>;
 
 #[allow(clippy::needless_pass_by_value)]
 fn script_is_some<T>(opt: Option<T>) -> bool {
@@ -319,14 +319,33 @@ impl<DataType: Variant + Clone> FormattingEngine<DataType> {
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub fn format(&mut self, name: &str, data: DataType, script: &str) -> ScriptResult<String> {
-        let mut scope = Scope::new();
-        scope.push_constant(name, data);
-
+    pub fn format_with_scope(&mut self, scope: &mut Scope, script: &str) -> ScriptResult<String> {
         self.messages.borrow_mut().clear();
-        self.engine.run_with_scope(&mut scope, script)?;
+        self.engine.run_with_scope(scope, script)?;
 
         Ok(self.messages.borrow().join(""))
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn format_from_file_with_scope<P: AsRef<Path>>(
+        &mut self,
+        scope: &mut Scope,
+        script: P,
+    ) -> ScriptResult<String> {
+        self.messages.borrow_mut().clear();
+        self.engine
+            .run_file_with_scope(scope, script.as_ref().to_path_buf())?;
+
+        Ok(self.messages.borrow().join(""))
+    }
+
+    #[allow(clippy::missing_errors_doc)]
+    pub fn format(&mut self, name: &str, data: DataType, script: &str) -> ScriptResult<String> {
+        let mut scope = Scope::new();
+        scope.push_constant("NL", "\n");
+        scope.push_constant(name, data);
+
+        self.format_with_scope(&mut scope, script)
     }
 
     #[allow(clippy::missing_errors_doc)]
@@ -339,11 +358,7 @@ impl<DataType: Variant + Clone> FormattingEngine<DataType> {
         let mut scope = Scope::new();
         scope.push_constant(name, data);
 
-        self.messages.borrow_mut().clear();
-        self.engine
-            .run_file_with_scope(&mut scope, script.as_ref().to_path_buf())?;
-
-        Ok(self.messages.borrow().join(""))
+        self.format_from_file_with_scope(&mut scope, script)
     }
 }
 
