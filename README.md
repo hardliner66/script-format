@@ -2,6 +2,9 @@
 
 I regularly needed to output data in a custom format, which is why I created a DSL based on [Rhai](https://rhai.rs/book/).
 
+## Demo
+`cargo run -q -- -s test_format.rhai -i test.json`
+
 ## DSL
 The most important part of the DSL is the `++` operator.
 
