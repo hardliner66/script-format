@@ -24,12 +24,12 @@ struct Args {
     #[arg(long, short, conflicts_with = "data")]
     input: Option<PathBuf>,
 
-    /// The script to format the rewritten data
+    /// The script to format the data
     #[arg(long, short)]
     script: PathBuf,
 
-    /// The output file to write the rewritten data to
-    /// If not provided, the rewritten data will be written to stdout
+    /// The output file to write the formatted data to
+    /// If not provided, the data will be written to stdout
     #[arg(long, short)]
     output: Option<PathBuf>,
 }
