@@ -266,6 +266,10 @@ impl FormattingEngine {
         Ok(self.messages.borrow().join(""))
     }
 
+    pub fn clone_messages(&self) -> Rc<RefCell<Vec<String>>> {
+        self.messages.clone()
+    }
+
     #[allow(clippy::missing_errors_doc)]
     pub fn format(
         &mut self,
@@ -304,27 +308,53 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
 
     let indent = Rc::new(RefCell::new("    ".to_owned()));
 
-    let v = indent.clone();
+    {
+        let indent = indent.clone();
 
-    // This isn't deprecated, the api is just volatile and may change
-    #[allow(deprecated)]
-    engine.on_var(move |name, _, _| match name {
-        "IND" => Ok(Some(v.borrow().clone().into())),
-        _ => Ok(None),
-    });
+        // This isn't deprecated, the api is just volatile and may change
+        #[allow(deprecated)]
+        engine.on_var(move |name, _, _| match name {
+            "IND" => Ok(Some(indent.borrow().clone().into())),
+            _ => Ok(None),
+        });
+    }
 
-    let v = indent.clone();
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    engine.register_fn("IND", move |count: i64| v.borrow().repeat(count as usize));
+    {
+        let indent = indent.clone();
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        engine.register_fn("IND", move |count: i64| {
+            indent.borrow().repeat(count as usize)
+        });
+    }
 
-    let v = indent.clone();
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    engine.register_fn("SET_INDENT", move |value: &str| {
-        value.clone_into(&mut v.borrow_mut());
-    });
+    {
+        let indent = indent.clone();
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        engine.register_fn("SET_INDENT", move |value: &str| {
+            value.clone_into(&mut indent.borrow_mut());
+        });
+    }
+
+    {
+        let indent = indent.clone();
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        engine.register_fn("SET_INDENT", move |value: &str, count: i64| {
+            *indent.borrow_mut() = value.repeat(count as usize)
+        });
+    }
+
+    {
+        let indent = indent.clone();
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        engine.register_fn("SET_INDENT", move |count: i64| {
+            *indent.borrow_mut() = " ".repeat(count as usize)
+        });
+    }
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     engine.register_fn("NL", |count: i64| "\n".repeat(count as usize));
+
+    engine.register_iterator::<Vec<serde_value::Value>>();
 
     register_options!(
         engine,
@@ -477,37 +507,6 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
                 .push(serde_json::to_string(&b).unwrap());
         });
     }
-
-    // macro_rules! register_comparison {
-    //     ($(($A: ty, $B: ty, $C: ty)),*) => {
-    //         $(
-    //         engine.register_fn(">",  |left: $A, right: $B| left as $C >  right as $C);
-    //         engine.register_fn(">=", |left: $A, right: $B| left as $C >= right as $C);
-    //         engine.register_fn("<",  |left: $A, right: $B| left as $C <  right as $C);
-    //         engine.register_fn("<=", |left: $A, right: $B| left as $C <= right as $C);
-    //         engine.register_fn("!=", |left: $A, right: $B| left as $C != right as $C);
-    //         engine.register_fn("==", |left: $A, right: $B| left as $C == right as $C);
-
-    //         engine.register_fn(">",  |left: $B, right: $A| left as $C >  right as $C);
-    //         engine.register_fn(">=", |left: $B, right: $A| left as $C >= right as $C);
-    //         engine.register_fn("<",  |left: $B, right: $A| left as $C <  right as $C);
-    //         engine.register_fn("<=", |left: $B, right: $A| left as $C <= right as $C);
-    //         engine.register_fn("!=", |left: $B, right: $A| left as $C != right as $C);
-    //         engine.register_fn("==", |left: $B, right: $A| left as $C == right as $C);
-    //         )*
-    //     };
-    // }
-
-    // register_comparison!(
-    //     (i64, usize, i128),
-    //     (i32, usize, i128),
-    //     (i16, usize, i128),
-    //     (i8, usize, i128),
-    //     (u64, usize, usize),
-    //     (u32, usize, usize),
-    //     (u16, usize, usize),
-    //     (u8, usize, usize)
-    // );
 
     macro_rules! register_string_concat_void {
         ($($T: ty),*) => {$({
