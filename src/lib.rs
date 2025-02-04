@@ -299,6 +299,7 @@ impl FormattingEngine {
     /// # Returns
     ///
     /// A formatted string result.
+    #[cfg(not(feature = "web"))]
     pub fn format_from_file_with_scope<P: AsRef<Path>>(
         &mut self,
         scope: &mut Scope,
@@ -370,6 +371,7 @@ impl FormattingEngine {
     /// # Returns
     ///
     /// A formatted string result.
+    #[cfg(not(feature = "web"))]
     pub fn format_from_file<P: AsRef<Path>>(
         &mut self,
         name: &str,
