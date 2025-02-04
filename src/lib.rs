@@ -37,17 +37,21 @@
 //!
 //! ```rust
 //! use script_format::{
+//!     // The crate re-exports the Rhai engine for convenience
 //!     rhai::{CustomType, TypeBuilder},
 //!     FormattingEngine,
 //! };
 //!
+//! // Derive the `CustomType` trait to enable Rhai to access the fields of the struct
 //! #[derive(Clone, CustomType)]
 //! struct Person {
 //!     pub name: String,
 //!     pub age: i32,
 //! }
 //!
+//! // Create a new `FormattingEngine` instance with debug mode disabled
 //! let mut engine = FormattingEngine::new(false);
+//! // Register the custom type so the Rhai engine can access it
 //! engine.build_type::<Person>();
 //!
 //! let person = Person {
@@ -67,6 +71,7 @@
 //!     "#
 //!     .trim();
 //!
+//! // Execute the Rhai script to format the person's details
 //! let result = engine.format("person", person, script);
 //! assert_eq!(result.unwrap(), expected);
 //! ```
