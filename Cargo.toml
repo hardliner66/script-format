@@ -15,3 +15,7 @@ serde-value = "0.7.0"
 serde_json = "1.0.137"
 serde_yaml = "0.9.34"
 toml = "0.8.19"
+
+[features]
+default = []
+web = []

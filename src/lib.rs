@@ -1,185 +1,124 @@
+//! Simple DSL for formatting data based on Rhai.
+//!
+//! This crate provides a custom DSL built on top of the Rhai scripting engine,
+//! designed specifically for formatting data. The DSL introduces a set of custom
+//! functions and operators to enhance the capabilities of Rhai when it comes to
+//! text formatting tasks.
+//!
+//! # Key Features
+//!
+//! - **Custom Operators:** Extended with operators like `++`, `and`, `or`, `xor`,
+//!   `contains`, `equals`, `require`, `then_emit`, and `or_emit` for expressive scripts.
+//! - **Message Emission:** Use `-` to emit a single message and `++` to emit multiple messages.
+//! - **Conditional Emission:** The `then_emit` and `or_emit` operators allow conditional message emission
+//!   based on boolean conditions.
+//! - **Indentation Control:** `IND` and `SET_INDENT` functions to manage indentation dynamically.
+//! - **Flexible Data Handling:** Supports arrays, maps, strings, and custom types.
+//! - **Shortcuts:** `IND` and `NL` constants can be used as shortcuts for `IND(1)` and `NL(1)` respectively.
+//!
+//! # DSL Overview
+//!
+//! - `- <message>`: Emits a message.
+//! - `<a> ++ <b>`: Emits messages `a` and `b`.
+//! - `then_emit(<condition>, <message>)`: Emits `<message>` if `<condition>` is true.
+//! - `or_emit(<condition>, <message>)`: Emits `<message>` if `<condition>` is false.
+//! - `SET_INDENT(<string>)`: Sets the current indent string.
+//! - `IND(<count>)`: Generates indentation with the current indent string.
+//! - `NL(<count>)`: Inserts newlines.
+//! - `IND`: Shortcut for `IND(1)`.
+//! - `NL`: Shortcut for `NL(1)`.
+//!
+//! # DSL Example
+//!
+//! We're going to use the following script to format a person's details:
+//! ```rhai
+#![doc = include_str!("../doc_test.rhai")]
+//! ```
+//!
+//! ```rust
+//! use script_format::{
+//!     rhai::{CustomType, TypeBuilder},
+//!     FormattingEngine,
+//! };
+//!
+//! #[derive(Clone, CustomType)]
+//! struct Person {
+//!     pub name: String,
+//!     pub age: i32,
+//! }
+//!
+//! let mut engine = FormattingEngine::new(false);
+//! engine.build_type::<Person>();
+//!
+//! let person = Person {
+//!     name: "Alice".into(),
+//!     age: 30,
+//! };
+//!
+//! let script = r#"
+#![doc = include_str!("../doc_test.rhai")]
+//! "#;
+//!
+//! let expected = r#"
+//! Person Details:
+//! .. Name: Alice
+//! .. Age: 30
+//! .. .. - Adult
+//!     "#
+//!     .trim();
+//!
+//! let result = engine.format("person", person, script);
+//! assert_eq!(result.unwrap(), expected);
+//! ```
+//!
+//! **Expected Output:**
+//! ```txt
+//! Name: Alice
+//! Age: 30 - Adult
+//! ```
+//!
+//! This DSL is ideal for generating formatted text dynamically based on data inputs.
+
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::ops::DerefMut;
 use std::path::Path;
 use std::rc::Rc;
-use std::time::Instant;
-use std::{any::TypeId, ops::Deref};
 
+use rhai::CustomType;
 use rhai::{
     packages::{CorePackage, Package},
-    Array, Dynamic, Engine, EvalAltResult, ImmutableString, Map, Scope, Variant, FLOAT, INT,
+    Engine, EvalAltResult, Map, Scope, Variant,
 };
 
+mod internal;
+
+pub use rhai;
+
+/// A type alias for the result of script execution within the `FormattingEngine`.
+///
+/// This alias simplifies error handling when executing Rhai scripts, encapsulating
+/// either a successful result (`T`) or an error (`Box<EvalAltResult>`).
+///
+/// # Examples
+///
+/// ```rust
+/// use script_format::{
+///     FormattingEngine,
+///     ScriptResult,
+/// };
+///
+/// fn execute_script(script: &str) -> ScriptResult<()> {
+///     let mut engine = FormattingEngine::new(false);
+///     engine.format("data", 42, script)?;
+///     Ok(())
+/// }
+/// ```
+///
+/// # Type Parameters
+///
+/// * `T` - The type of the successful result.
 pub type ScriptResult<T> = Result<T, Box<EvalAltResult>>;
-
-#[allow(clippy::needless_pass_by_value)]
-fn script_is_some<T>(opt: Option<T>) -> bool {
-    opt.is_some()
-}
-
-fn script_unwrap<T>(opt: Option<T>) -> T {
-    opt.unwrap()
-}
-
-fn script_unwrap_or<T>(opt: Option<T>, default: T) -> T {
-    opt.unwrap_or(default)
-}
-
-fn script_join(v: &[String], sep: &str) -> String {
-    v.join(sep)
-}
-
-fn script_split(s: &str, pattern: &str) -> Vec<Dynamic> {
-    s.split(pattern)
-        .map(|s| Dynamic::from(s.to_string()))
-        .collect()
-}
-
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn script_splitn(s: &str, n: INT, pattern: &str) -> Vec<Dynamic> {
-    s.splitn(n as usize, pattern)
-        .map(|s| Dynamic::from(s.to_string()))
-        .collect()
-}
-
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn script_rsplitn(s: &str, n: INT, pattern: &str) -> Vec<Dynamic> {
-    s.rsplitn(n as usize, pattern)
-        .map(|s| Dynamic::from(s.to_string()))
-        .collect()
-}
-
-fn script_string_is_empty(s: &str) -> bool {
-    s.is_empty()
-}
-
-fn script_array_is_empty(s: &Array) -> bool {
-    s.is_empty()
-}
-
-fn script_starts_with(s: &str, pat: &str) -> bool {
-    s.starts_with(pat)
-}
-
-fn script_ends_with(s: &str, pat: &str) -> bool {
-    s.ends_with(pat)
-}
-
-fn script_trim(s: &str) -> &str {
-    s.trim()
-}
-
-fn script_is_no_string(_: Dynamic) -> bool {
-    false
-}
-
-fn script_is_string(_: &str) -> bool {
-    true
-}
-
-fn script_any(arr: &Array) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(arr.iter().any(|b| b.as_bool().unwrap()))
-    } else {
-        Err("any only takes bool values".into())
-    }
-}
-
-fn script_all(arr: &Array) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(arr.iter().all(|b| b.as_bool().unwrap()))
-    } else {
-        Err("all only takes bool values".into())
-    }
-}
-
-fn script_none(arr: &Array) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(!arr.iter().any(|b| b.as_bool().unwrap()))
-    } else {
-        Err("none only takes bool values".into())
-    }
-}
-
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn script_require(arr: &Array, n: INT) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(arr.iter().filter(|b| b.as_bool().unwrap()).count() == n as usize)
-    } else {
-        Err("none only takes bool values".into())
-    }
-}
-
-fn script_map_equals(m1: &Map, m2: &Map) -> ScriptResult<bool> {
-    if m1.len() != m2.len() {
-        return Ok(false);
-    }
-    for (key, value) in m1 {
-        if let Some(value2) = m2.get(key) {
-            if !script_value_equals(value.clone(), value2.clone())? {
-                return Ok(false);
-            }
-        } else {
-            return Ok(false);
-        }
-    }
-    Ok(true)
-}
-
-fn script_string_contains(s: &str, v: &str) -> bool {
-    s.contains(v)
-}
-
-fn script_map_contains(m: &Map, name: &str) -> bool {
-    m.get(name).is_some()
-}
-
-fn script_value_equals(v1: Dynamic, v2: Dynamic) -> ScriptResult<bool> {
-    let t1 = v1.type_id();
-    let t2 = v2.type_id();
-    if t1 != t2 {
-        Ok(false)
-    } else if t1 == TypeId::of::<()>() {
-        Ok(true)
-    } else if t1 == TypeId::of::<bool>() {
-        Ok(v1.as_bool() == v2.as_bool())
-    } else if t1 == TypeId::of::<ImmutableString>() {
-        Ok(v1.into_immutable_string() == v2.into_immutable_string())
-    } else if t1 == TypeId::of::<char>() {
-        Ok(v1.as_char() == v2.as_char())
-    } else if t1 == TypeId::of::<INT>() {
-        Ok(v1.as_int() == v2.as_int())
-    } else if t1 == TypeId::of::<FLOAT>() {
-        Ok(v1.as_float() == v2.as_float())
-    } else if t1 == TypeId::of::<Array>() {
-        Ok(script_array_equals(
-            &v1.cast::<Array>(),
-            &v2.cast::<Array>(),
-        ))
-    } else if t1 == TypeId::of::<Map>() {
-        script_map_equals(&v1.cast::<Map>(), &v2.cast::<Map>())
-    } else if t1 == TypeId::of::<Instant>() {
-        Ok(v1.cast::<Instant>() == v2.cast::<Instant>())
-    } else {
-        Err("unsupported type".into())
-    }
-}
-
-fn script_array_equals(arr: &Array, arr2: &Array) -> bool {
-    if arr.len() != arr2.len() {
-        return false;
-    }
-    let result = arr
-        .iter()
-        .zip(arr2.iter())
-        .all(|(e1, e2)| script_value_equals(e1.clone(), e2.clone()).unwrap_or_default());
-    result
-}
-
-fn script_array_contains(arr: Array, v: &Dynamic) -> bool {
-    arr.into_iter()
-        .any(|ele| script_value_equals(ele, v.clone()).unwrap_or_default())
-}
 
 macro_rules! register_vec {
     ($engine: expr, ($($T: ty),*)) => {
@@ -200,13 +139,32 @@ macro_rules! register_options {
     ($engine: expr, ($($T: ty),*)) => {
         $(
         $engine
-            .register_fn("is_some", script_is_some::<$T>)
-            .register_fn("unwrap", script_unwrap::<$T>)
-            .register_fn("unwrap_or", script_unwrap_or::<$T>);
+            .register_fn("is_some", internal::script_is_some::<$T>)
+            .register_fn("unwrap", internal::script_unwrap::<$T>)
+            .register_fn("unwrap_or", internal::script_unwrap_or::<$T>);
         )*
     };
 }
 
+/// A wrapper around the Rhai `Engine` for formatting data using a dsl based on rhai.
+///
+/// `FormattingEngine` allows you to register custom types and format them using a custom dsl based on rhai.
+///
+/// # Examples
+///
+/// ```rust
+/// use script_format::FormattingEngine;
+///
+/// let mut engine = FormattingEngine::new(false);
+/// let result = engine.format("name", "World", "- `Hello, ${name}!`");
+/// assert_eq!(result.unwrap(), "Hello, World!");
+/// ```
+///
+/// # Features
+///
+/// - Custom type registration
+/// - Script execution with data binding
+/// - Debug support for script evaluation
 pub struct FormattingEngine {
     engine: Engine,
     messages: Rc<RefCell<Vec<String>>>,
@@ -227,6 +185,15 @@ impl DerefMut for FormattingEngine {
 }
 
 impl FormattingEngine {
+    /// Creates a new `FormattingEngine` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `debug` - A boolean indicating whether to enable debug functions inside Rhai.
+    ///
+    /// # Returns
+    ///
+    /// A new, pre-configured, `FormattingEngine` instance.
     #[must_use]
     pub fn new(debug: bool) -> Self {
         let messages = Rc::new(RefCell::new(Vec::new()));
@@ -234,6 +201,18 @@ impl FormattingEngine {
         Self { engine, messages }
     }
 
+    /// Registers a custom type with the Rhai engine.
+    ///
+    /// This method also registers the `is_some`, `unwrap`, and `unwrap_or` methods for the custom type,
+    /// as well as the necessary functions for using the type inside a `Vec<T>`.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The type to register, which must implement `Variant` and `Clone`.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to `self` to allow method chaining.
     pub fn register_type<T: Variant + Clone>(&mut self) -> &mut Self {
         self.engine.register_type::<T>();
         register_options!(self.engine, (T));
@@ -241,7 +220,59 @@ impl FormattingEngine {
         self
     }
 
-    #[allow(clippy::missing_errors_doc)]
+    /// Builds and registers a custom type with the Rhai engine.
+    ///
+    /// This function initializes the custom type using `build_type` and then registers it
+    /// with the Rhai engine, making it accessible within the DSL scripts.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - The custom type to build and register, which must implement `Variant`, `CustomType`, and `Clone`.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to `self` to allow method chaining.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use script_format::{
+    ///     rhai::{CustomType, TypeBuilder},
+    ///     FormattingEngine,
+    /// };
+    ///
+    /// #[derive(Clone, CustomType)]
+    /// struct Person {
+    ///     name: String,
+    ///     age: i32,
+    /// }
+    ///
+    /// let mut engine = FormattingEngine::new(false);
+    /// engine.build_type::<Person>();
+    /// ```
+    pub fn build_type<T: Variant + CustomType + Clone>(&mut self) -> &mut Self {
+        self.engine.build_type::<T>();
+        self.engine.register_type::<T>();
+        self
+    }
+
+    /// Runs the formatting script with the provided scope.
+    ///
+    /// Use the scope to pass data to the script.
+    /// **You must register (`build_type` / `register_type`) each custom type that should be accessed beforehand so that rhai can properly access it.**
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` - The Rhai `Scope` to be used during script evaluation.
+    /// * `script` - The script to execute for formatting.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if script execution fails.
+    ///
+    /// # Returns
+    ///
+    /// A formatted string result.
     pub fn format_with_scope(&mut self, scope: &mut Scope, script: &str) -> ScriptResult<String> {
         scope.push_constant("NL", "\n");
 
@@ -251,7 +282,23 @@ impl FormattingEngine {
         Ok(self.messages.borrow().join(""))
     }
 
-    #[allow(clippy::missing_errors_doc)]
+    /// Formats an object using a script from a file with the provided scope.
+    ///
+    /// Use the scope to pass data to the script.
+    /// **You must register (`build_type` / `register_type`) each custom type that should be accessed beforehand so that rhai can properly access it.**
+    ///
+    /// # Arguments
+    ///
+    /// * `scope` - The Rhai `Scope` to be used during script evaluation.
+    /// * `script` - The file path of the script to execute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file reading or script execution fails.
+    ///
+    /// # Returns
+    ///
+    /// A formatted string result.
     pub fn format_from_file_with_scope<P: AsRef<Path>>(
         &mut self,
         scope: &mut Scope,
@@ -266,11 +313,34 @@ impl FormattingEngine {
         Ok(self.messages.borrow().join(""))
     }
 
+    /// Clones the messages buffer.
+    ///
+    /// This can be useful if you want to register a custom function that needs to access the messages buffer.
+    ///
+    /// # Returns
+    ///
+    /// A reference-counted pointer to the messages buffer.
     pub fn clone_messages(&self) -> Rc<RefCell<Vec<String>>> {
         self.messages.clone()
     }
 
-    #[allow(clippy::missing_errors_doc)]
+    /// Formats an object using a script.
+    ///
+    /// **You must register (`build_type` / `register_type`) each custom type that should be accessed beforehand so that rhai can properly access it.**
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the data variable in the script.
+    /// * `data` - The data object to format.
+    /// * `script` - The script to execute for formatting.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if script execution fails.
+    ///
+    /// # Returns
+    ///
+    /// A formatted string result.
     pub fn format(
         &mut self,
         name: &str,
@@ -283,7 +353,23 @@ impl FormattingEngine {
         self.format_with_scope(&mut scope, script)
     }
 
-    #[allow(clippy::missing_errors_doc)]
+    /// Formats an object using a script from a file.
+    ///
+    /// **You must register (`build_type` / `register_type`) each custom type that should be accessed beforehand so that rhai can properly access it.**
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the data variable in the script.
+    /// * `data` - The data object to format.
+    /// * `script` - The file path of the script to execute.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if file reading or script execution fails.
+    ///
+    /// # Returns
+    ///
+    /// A formatted string result.
     pub fn format_from_file<P: AsRef<Path>>(
         &mut self,
         name: &str,
@@ -362,17 +448,17 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
     );
 
     engine
-        .register_fn("join", script_join)
-        .register_fn("split", script_split)
-        .register_fn("splitn", script_splitn)
-        .register_fn("rsplitn", script_rsplitn)
-        .register_fn("is_empty", script_string_is_empty)
-        .register_fn("is_empty", script_array_is_empty)
-        .register_fn("starts_with", script_starts_with)
-        .register_fn("ends_with", script_ends_with)
-        .register_fn("trim", script_trim)
-        .register_fn("is_string", script_is_no_string)
-        .register_fn("is_string", script_is_string);
+        .register_fn("join", internal::script_join)
+        .register_fn("split", internal::script_split)
+        .register_fn("splitn", internal::script_splitn)
+        .register_fn("rsplitn", internal::script_rsplitn)
+        .register_fn("is_empty", internal::script_string_is_empty)
+        .register_fn("is_empty", internal::script_array_is_empty)
+        .register_fn("starts_with", internal::script_starts_with)
+        .register_fn("ends_with", internal::script_ends_with)
+        .register_fn("trim", internal::script_trim)
+        .register_fn("is_string", internal::script_is_no_string)
+        .register_fn("is_string", internal::script_is_string);
 
     // DSL
     engine
@@ -391,16 +477,16 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
         .unwrap()
         .register_custom_operator("require", 15)
         .unwrap()
-        .register_fn("contains", script_map_contains)
-        .register_fn("contains", script_string_contains)
-        .register_fn("equals", script_map_equals)
-        .register_fn("equals", script_value_equals)
-        .register_fn("equals", script_array_equals)
-        .register_fn("contains", script_array_contains)
-        .register_fn("require", script_require)
-        .register_fn("any", script_any)
-        .register_fn("all", script_all)
-        .register_fn("none", script_none);
+        .register_fn("contains", internal::script_map_contains)
+        .register_fn("contains", internal::script_string_contains)
+        .register_fn("equals", internal::script_map_equals)
+        .register_fn("equals", internal::script_value_equals)
+        .register_fn("equals", internal::script_array_equals)
+        .register_fn("contains", internal::script_array_contains)
+        .register_fn("require", internal::script_require)
+        .register_fn("any", internal::script_any)
+        .register_fn("all", internal::script_all)
+        .register_fn("none", internal::script_none);
 
     macro_rules! register_msg_single {
         ($($T: ty),*) => {
@@ -440,6 +526,50 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
         (bool, &str),
         (bool, usize),
         (bool, bool)
+    );
+
+    macro_rules! register_comparison {
+        ($(($A: ty, $B: ty, $C: ty)),*) => {
+            $(
+            engine.register_fn(">",  |left: $A, right: $B| (left as $C) >  (right as $C));
+            engine.register_fn(">=", |left: $A, right: $B| (left as $C) >= (right as $C));
+            engine.register_fn("<",  |left: $A, right: $B| (left as $C) <  (right as $C));
+            engine.register_fn("<=", |left: $A, right: $B| (left as $C) <= (right as $C));
+            engine.register_fn("!=", |left: $A, right: $B| (left as $C) != (right as $C));
+            engine.register_fn("==", |left: $A, right: $B| (left as $C) == (right as $C));
+
+            engine.register_fn(">",  |left: $B, right: $A| (left as $C) >  (right as $C));
+            engine.register_fn(">=", |left: $B, right: $A| (left as $C) >= (right as $C));
+            engine.register_fn("<",  |left: $B, right: $A| (left as $C) <  (right as $C));
+            engine.register_fn("<=", |left: $B, right: $A| (left as $C) <= (right as $C));
+            engine.register_fn("!=", |left: $B, right: $A| (left as $C) != (right as $C));
+            engine.register_fn("==", |left: $B, right: $A| (left as $C) == (right as $C));
+            )*
+        };
+    }
+
+    register_comparison!(
+        (u8, u16, u16),
+        (u8, u32, u32),
+        (u8, u64, u64),
+        (u16, u32, u32),
+        (u16, u64, u64),
+        (u32, u64, u64),
+        (i8, i16, i16),
+        (i8, i32, i32),
+        (i8, i64, i64),
+        (i16, i32, i32),
+        (i16, i64, i64),
+        (i32, i64, i64),
+        (i64, usize, i128),
+        (i32, usize, i128),
+        (i16, usize, i128),
+        (i8, usize, i128),
+        (u64, usize, usize),
+        (u32, usize, usize),
+        (u16, usize, usize),
+        (u8, usize, usize),
+        (f32, f64, f64)
     );
 
     macro_rules! register_value_right {
