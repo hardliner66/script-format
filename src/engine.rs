@@ -724,7 +724,10 @@ impl FormattingEngine {
 
 #[allow(clippy::too_many_lines)]
 fn build_engine(debug: bool) -> FormattingEngine {
-    let mut engine = FormattingEngine::new(debug);
+    let mut engine = FormattingEngine {
+        engine: rhai::Engine::new(),
+        messages: Rc::new(RefCell::new(Vec::new())),
+    };
     engine.set_max_expr_depths(128, 64);
 
     let package = CorePackage::new();
