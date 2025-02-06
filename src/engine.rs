@@ -38,169 +38,6 @@ use crate::internal::ToBe;
 /// * `T` - The type of the successful result.
 pub type ScriptResult<T> = Result<T, Box<EvalAltResult>>;
 
-// macro_rules! basic_types {
-//     () => {
-//         &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-//         f64
-//     }
-// }
-
-macro_rules! register_vec_printable_single {
-    ($engine: expr, $A: ty, ($($B: ty),*)) => {
-        $(
-        {
-            $engine
-                .register_fn("++", move |a: Vec<$A>, b: $B| {
-                    a.iter().map(|msg| format!("{msg}")).chain(once(format!("{b}"))).collect::<Vec<_>>()
-                });
-            $engine
-                .register_fn("++", move |a: $A, b: Vec<$B>| {
-                    once(format!("{a}")).chain(b.iter().map(|msg| format!("{msg}"))).collect::<Vec<_>>()
-                });
-
-            $engine
-                .register_fn("++", move |a: Option<Vec<$A>>, b: $B| {
-                    let a: Vec<$A> = a.unwrap_or_default();
-                    a.iter()
-                     .map(ToString::to_string).chain(once(b.to_string()))
-                     .collect::<Vec<_>>()
-                });
-            $engine
-                .register_fn("++", move |a: $A, b: Option<Vec<$B>>| {
-                    let b: Vec<$B> = b.unwrap_or_default();
-                    once(format!("{a}"))
-                        .chain(b.iter().map(ToString::to_string))
-                        .collect::<Vec<_>>()
-                });
-
-            $engine
-                .register_fn("++", move |a: Vec<$A>, b: Option<$B>| {
-                    let mut res = a.iter().map(ToString::to_string).collect::<Vec<_>>();
-                    if let Some(b) = b {
-                        res.push(b.to_string());
-                    }
-                    res
-                });
-            $engine
-                .register_fn("++", move |a: Option<$A>, b: Vec<$B>| {
-                    a.iter()
-                     .map(|a| a.to_string())
-                     .chain(b.iter().map(ToString::to_string))
-                     .collect::<Vec<_>>()
-                });
-        }
-        )*
-    };
-}
-
-macro_rules! register_vec_printable_multi {
-    ($engine: expr, $A: ty, ($($B: ty),*)) => {
-        $(
-        {
-            $engine
-            .register_fn("++", move |a: Vec<$A>, b: Vec<$B>| {
-                a.iter().map(|msg| format!("{msg}")).chain(b.iter().map(|msg| format!("{msg}"))).collect::<Vec<_>>()
-            });
-
-            $engine
-                .register_fn("++", move |a: Option<Vec<$A>>, b: Vec<$B>| {
-                    let a: Vec<$A> = a.unwrap_or_default();
-                    a.iter()
-                     .map(ToString::to_string).chain(b.iter().map(ToString::to_string))
-                     .collect::<Vec<_>>()
-                });
-            $engine
-                .register_fn("++", move |a: Vec<$A>, b: Option<Vec<$B>>| {
-                    let b: Vec<$B> = b.unwrap_or_default();
-                    a.iter()
-                     .map(ToString::to_string).chain(b.iter().map(ToString::to_string))
-                     .collect::<Vec<_>>()
-                });
-        }
-        )*
-    };
-}
-
-macro_rules! register_vec_printable_void {
-    ($engine: expr, ($($T: ty),*)) => {
-    $(
-    {
-        $engine.register_fn("++", move |a: Vec<$T>, _b: ()| {
-            a.iter().map(|msg| format!("{msg}")).collect::<Vec<_>>()
-        });
-    }
-    {
-        $engine.register_fn("++", move |_a: (), b: Vec<$T>| {
-            b.iter().map(|msg| format!("{msg}")).collect::<Vec<_>>()
-        });
-    }
-    {
-        $engine.register_fn("++", move |a: Option<Vec<$T>>, _b: ()| {
-            a.unwrap_or_default().iter().map(|msg| format!("{msg}")).collect::<Vec<_>>()
-        });
-    }
-    {
-        $engine.register_fn("++", move |_a: (), b: Option<Vec<$T>>| {
-            b.unwrap_or_default().iter().map(|msg| format!("{msg}")).collect::<Vec<_>>()
-        });
-    }
-    )*};
-}
-
-macro_rules! register_vec_printable {
-    ($engine: expr, ($($T: ty),*)) => {
-        $(
-        {
-            $engine.register_fn("++",move  |a: Vec<$T>| {
-                a.iter().map(|msg| format!("{msg}")).collect::<Vec<_>>()
-            });
-        }
-
-
-        register_vec_printable_single!($engine, $T, (
-            &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-            f64
-        ));
-
-        register_vec_printable_multi!($engine, $T, (
-            &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-            f64
-        ));
-
-        register_vec_printable_void!($engine, (
-            &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-            f64
-        ));
-        )*
-    };
-}
-
-macro_rules! register_vec {
-    ($engine: expr, ($($T: ty),*)) => {
-        $(
-        $engine
-            .register_type::<Vec<$T>>()
-            .register_fn("len", |v: Vec<$T>| v.len())
-            .register_iterator::<Vec<$T>>()
-            .register_iterator::<&Vec<&$T>>()
-            .register_iterator::<Vec<$T>>()
-            .register_iterator::<&Vec<&$T>>()
-            .register_indexer_get(|v: &mut Vec<$T>, i: i64| v[usize::try_from(i).unwrap()].to_owned());
-        )*
-    };
-}
-
-macro_rules! register_options {
-    ($engine: expr, ($($T: ty),*)) => {
-        $(
-        $engine
-            .register_fn("is_some", crate::internal::script_is_some::<$T>)
-            .register_fn("unwrap", crate::internal::script_unwrap::<$T>)
-            .register_fn("unwrap_or", crate::internal::script_unwrap_or::<$T>);
-        )*
-    };
-}
-
 /// A wrapper around the Rhai `Engine` for formatting data using a dsl based on rhai.
 ///
 /// `FormattingEngine` allows you to register custom types and format them using a custom dsl based on rhai.
@@ -238,51 +75,408 @@ impl DerefMut for FormattingEngine {
         &mut self.engine
     }
 }
-fn register_type_dynamic<T: Clone + 'static, C: From<T> + PartialEq + 'static>(
-    engine: &mut Engine,
-    is_call: fn(&Dynamic) -> bool,
-    as_call: fn(&Dynamic) -> Result<C, &'static str>,
-) {
-    engine.register_fn("any", move |arr: rhai::Array, v: T| {
-        let value: C = v.into();
-        arr.iter()
-            .filter(|a| is_call(a))
-            .map(|a| {
-                let a: C = as_call(&a).unwrap().into();
-                a
-            })
-            .filter(|a| *a == value)
-            .into_iter()
-            .count()
-            > 0
-    });
-    engine.register_fn("all", move |arr: rhai::Array, v: T| {
-        let value: C = v.into();
-        let expected = arr.len();
-        arr.iter()
-            .filter(|a| is_call(a))
-            .map(|a| {
-                let a: C = as_call(&a).unwrap().into();
-                a
-            })
-            .filter(|a| *a == value)
-            .into_iter()
-            .count()
-            == expected
-    });
-    engine.register_fn("none", move |arr: rhai::Array, v: T| {
-        let value: C = v.into();
-        arr.iter()
-            .filter(|a| is_call(a))
-            .map(|a| {
-                let a: C = as_call(&a).unwrap().into();
-                a
-            })
-            .filter(|a| *a == value)
-            .into_iter()
-            .count()
-            == 0
-    });
+
+impl FormattingEngine {
+    fn register_value<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.engine
+            .register_fn("++", move |a: T, b: serde_value::Value| {
+                vec![a.to_string(), serde_json::to_string(&b).unwrap()]
+            });
+        self.engine
+            .register_fn("++", move |a: serde_value::Value, b: T| {
+                vec![serde_json::to_string(&a).unwrap(), b.to_string()]
+            });
+    }
+
+    fn register_string_concat_void<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.engine
+            .register_fn("++", move |a: T, _b: ()| vec![a.to_string()]);
+        self.engine
+            .register_fn("++", move |_a: (), b: T| vec![b.to_string()]);
+    }
+
+    fn register_string_concat<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.engine.register_fn("++", move |a: T, b: &str| {
+            vec![a.to_string(), b.to_string()]
+        });
+        self.engine.register_fn("++", move |a: &str, b: T| {
+            vec![a.to_string(), b.to_string()]
+        });
+        self.engine
+            .register_fn("++", move |a: T, b: T| vec![a.to_string(), b.to_string()]);
+    }
+
+    fn register_string_concat_vec<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.engine.register_fn("++", move |a: Vec<T>, b: &str| {
+            a.iter()
+                .map(ToString::to_string)
+                .chain(once(b.to_owned()))
+                .collect::<Vec<_>>()
+        });
+        self.engine.register_fn("++", move |a: &str, b: Vec<T>| {
+            b.iter()
+                .map(ToString::to_string)
+                .chain(once(a.to_owned()))
+                .collect::<Vec<_>>()
+        });
+        self.engine.register_fn("++", move |a: Vec<T>, b: Vec<T>| {
+            a.iter()
+                .map(ToString::to_string)
+                .chain(b.iter().map(ToString::to_string))
+                .collect::<Vec<_>>()
+        });
+    }
+
+    fn register_concat<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.register_string_concat::<T>();
+        self.register_string_concat_vec::<T>();
+        self.register_string_concat_void::<T>();
+    }
+
+    fn register_msg<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.register_msg_single::<T>();
+        self.register_msg_multi::<T, &str>();
+        self.register_msg_multi::<T, String>();
+        self.register_msg_multi::<T, bool>();
+        self.register_msg_multi::<T, i64>();
+        self.register_msg_multi::<T, u64>();
+        self.register_msg_multi::<T, i32>();
+        self.register_msg_multi::<T, u32>();
+        self.register_msg_multi::<T, i16>();
+        self.register_msg_multi::<T, u16>();
+        self.register_msg_multi::<T, i8>();
+        self.register_msg_multi::<T, u8>();
+        self.register_msg_multi::<T, usize>();
+        self.register_msg_multi::<T, isize>();
+        self.register_msg_multi::<T, i128>();
+        self.register_msg_multi::<T, u128>();
+        self.register_msg_multi::<T, f32>();
+        self.register_msg_multi::<T, f64>();
+    }
+
+    fn register_msg_multi<
+        A: Variant + Clone + std::fmt::Display,
+        B: Variant + Clone + std::fmt::Display,
+    >(
+        &mut self,
+    ) {
+        self.engine
+            .register_fn("++", move |a: A, b: B| vec![a.to_string(), b.to_string()]);
+
+        self.engine
+            .register_fn("++", move |b: B, a: A| vec![b.to_string(), a.to_string()]);
+
+        self.engine.register_fn("++", move |a: Option<A>, b: B| {
+            if let Some(a) = a {
+                vec![a.to_string(), b.to_string()]
+            } else {
+                vec![b.to_string()]
+            }
+        });
+
+        self.engine.register_fn("++", move |a: A, b: Option<B>| {
+            if let Some(b) = b {
+                vec![a.to_string(), b.to_string()]
+            } else {
+                vec![a.to_string()]
+            }
+        });
+
+        self.engine
+            .register_fn("++", move |a: Option<A>, b: Option<B>| match (a, b) {
+                (Some(a), Some(b)) => vec![a.to_string(), b.to_string()],
+                (Some(a), None) => vec![a.to_string()],
+                (None, Some(b)) => vec![b.to_string()],
+                (None, None) => vec![],
+            });
+    }
+
+    fn register_msg_single<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        {
+            let messages = self.clone_messages();
+            self.engine.register_fn("-", move |msg: T| {
+                messages.borrow_mut().push(msg.to_string());
+            });
+        }
+
+        {
+            let messages = self.clone_messages();
+            self.engine.register_fn("-", move |msg: Option<T>| {
+                if let Some(msg) = msg {
+                    messages.borrow_mut().push(msg.to_string());
+                }
+            });
+        }
+    }
+
+    fn register_vec<T: Variant + Clone>(&mut self) {
+        self.engine
+            .register_type::<Vec<T>>()
+            .register_fn("len", |v: Vec<T>| v.len())
+            .register_iterator::<Vec<T>>()
+            .register_iterator::<&Vec<&T>>()
+            .register_iterator::<Vec<T>>()
+            .register_iterator::<&Vec<&T>>()
+            .register_indexer_get(|v: &mut Vec<T>, i: i64| {
+                v[usize::try_from(i).unwrap()].to_owned()
+            });
+    }
+
+    fn register_vec_printable<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.engine.register_fn("++", move |a: Vec<T>| {
+            a.iter().map(ToString::to_string).collect::<Vec<_>>()
+        });
+
+        self.register_vec_printable_single::<T, &str>();
+        self.register_vec_printable_single::<T, String>();
+        self.register_vec_printable_single::<T, bool>();
+        self.register_vec_printable_single::<T, i64>();
+        self.register_vec_printable_single::<T, u64>();
+        self.register_vec_printable_single::<T, i32>();
+        self.register_vec_printable_single::<T, u32>();
+        self.register_vec_printable_single::<T, i16>();
+        self.register_vec_printable_single::<T, u16>();
+        self.register_vec_printable_single::<T, i8>();
+        self.register_vec_printable_single::<T, u8>();
+        self.register_vec_printable_single::<T, usize>();
+        self.register_vec_printable_single::<T, isize>();
+        self.register_vec_printable_single::<T, i128>();
+        self.register_vec_printable_single::<T, u128>();
+        self.register_vec_printable_single::<T, f32>();
+        self.register_vec_printable_single::<T, f64>();
+
+        self.register_vec_printable_multi::<T, &str>();
+        self.register_vec_printable_multi::<T, String>();
+        self.register_vec_printable_multi::<T, bool>();
+        self.register_vec_printable_multi::<T, i64>();
+        self.register_vec_printable_multi::<T, u64>();
+        self.register_vec_printable_multi::<T, i32>();
+        self.register_vec_printable_multi::<T, u32>();
+        self.register_vec_printable_multi::<T, i16>();
+        self.register_vec_printable_multi::<T, u16>();
+        self.register_vec_printable_multi::<T, i8>();
+        self.register_vec_printable_multi::<T, u8>();
+        self.register_vec_printable_multi::<T, usize>();
+        self.register_vec_printable_multi::<T, isize>();
+        self.register_vec_printable_multi::<T, i128>();
+        self.register_vec_printable_multi::<T, u128>();
+        self.register_vec_printable_multi::<T, f32>();
+        self.register_vec_printable_multi::<T, f64>();
+
+        self.register_vec_printable_void::<&str>();
+        self.register_vec_printable_void::<String>();
+        self.register_vec_printable_void::<bool>();
+        self.register_vec_printable_void::<i64>();
+        self.register_vec_printable_void::<u64>();
+        self.register_vec_printable_void::<i32>();
+        self.register_vec_printable_void::<u32>();
+        self.register_vec_printable_void::<i16>();
+        self.register_vec_printable_void::<u16>();
+        self.register_vec_printable_void::<i8>();
+        self.register_vec_printable_void::<u8>();
+        self.register_vec_printable_void::<usize>();
+        self.register_vec_printable_void::<isize>();
+        self.register_vec_printable_void::<i128>();
+        self.register_vec_printable_void::<u128>();
+        self.register_vec_printable_void::<f32>();
+        self.register_vec_printable_void::<f64>();
+    }
+
+    fn register_vec_printable_void<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.engine.register_fn("++", move |a: Vec<T>, _b: ()| {
+            a.iter().map(ToString::to_string).collect::<Vec<_>>()
+        });
+        self.engine.register_fn("++", move |_a: (), b: Vec<T>| {
+            b.iter().map(ToString::to_string).collect::<Vec<_>>()
+        });
+        self.engine
+            .register_fn("++", move |a: Option<Vec<T>>, _b: ()| {
+                a.unwrap_or_default()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            });
+        self.engine
+            .register_fn("++", move |_a: (), b: Option<Vec<T>>| {
+                b.unwrap_or_default()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+            });
+    }
+
+    fn register_vec_printable_multi<
+        A: Variant + Clone + std::fmt::Display,
+        B: Variant + Clone + std::fmt::Display,
+    >(
+        &mut self,
+    ) {
+        self.engine.register_fn("++", move |a: Vec<A>, b: Vec<B>| {
+            a.iter()
+                .map(ToString::to_string)
+                .chain(b.iter().map(ToString::to_string))
+                .collect::<Vec<_>>()
+        });
+
+        self.engine
+            .register_fn("++", move |a: Option<Vec<A>>, b: Vec<B>| {
+                let a: Vec<A> = a.unwrap_or_default();
+                a.iter()
+                    .map(ToString::to_string)
+                    .chain(b.iter().map(ToString::to_string))
+                    .collect::<Vec<_>>()
+            });
+        self.engine
+            .register_fn("++", move |a: Vec<A>, b: Option<Vec<B>>| {
+                let b: Vec<B> = b.unwrap_or_default();
+                a.iter()
+                    .map(ToString::to_string)
+                    .chain(b.iter().map(ToString::to_string))
+                    .collect::<Vec<_>>()
+            });
+    }
+
+    fn register_vec_printable_single<
+        A: Variant + Clone + std::fmt::Display,
+        B: Variant + Clone + std::fmt::Display,
+    >(
+        &mut self,
+    ) {
+        self.engine.register_fn("++", move |a: Vec<A>, b: B| {
+            a.iter()
+                .map(ToString::to_string)
+                .chain(once(b.to_string()))
+                .collect::<Vec<_>>()
+        });
+        self.engine.register_fn("++", move |a: A, b: Vec<B>| {
+            once(a.to_string())
+                .chain(b.iter().map(ToString::to_string))
+                .collect::<Vec<_>>()
+        });
+
+        self.engine
+            .register_fn("++", move |a: Option<Vec<A>>, b: B| {
+                let a: Vec<A> = a.unwrap_or_default();
+                a.iter()
+                    .map(ToString::to_string)
+                    .chain(once(b.to_string()))
+                    .collect::<Vec<_>>()
+            });
+        self.engine
+            .register_fn("++", move |a: A, b: Option<Vec<B>>| {
+                let b: Vec<B> = b.unwrap_or_default();
+                once(a.to_string())
+                    .chain(b.iter().map(ToString::to_string))
+                    .collect::<Vec<_>>()
+            });
+
+        self.engine
+            .register_fn("++", move |a: Vec<A>, b: Option<B>| {
+                let mut res = a.iter().map(ToString::to_string).collect::<Vec<_>>();
+                if let Some(b) = b {
+                    res.push(b.to_string());
+                }
+                res
+            });
+        self.engine
+            .register_fn("++", move |a: Option<A>, b: Vec<B>| {
+                a.iter()
+                    .map(ToString::to_string)
+                    .chain(b.iter().map(ToString::to_string))
+                    .collect::<Vec<_>>()
+            });
+    }
+
+    fn register_type_dynamic<T: Variant + Clone + 'static, C: From<T> + PartialEq + 'static>(
+        &mut self,
+        is_call: fn(&Dynamic) -> bool,
+        as_call: fn(&Dynamic) -> Result<C, &'static str>,
+    ) {
+        self.engine
+            .register_fn("any", move |arr: rhai::Array, v: T| {
+                let value: C = v.into();
+                arr.iter()
+                    .filter(|a| is_call(a))
+                    .map(|a| {
+                        let a: C = as_call(&a).unwrap().into();
+                        a
+                    })
+                    .filter(|a| *a == value)
+                    .into_iter()
+                    .count()
+                    > 0
+            });
+        self.engine
+            .register_fn("all", move |arr: rhai::Array, v: T| {
+                let value: C = v.into();
+                let expected = arr.len();
+                arr.iter()
+                    .filter(|a| is_call(a))
+                    .map(|a| {
+                        let a: C = as_call(&a).unwrap().into();
+                        a
+                    })
+                    .filter(|a| *a == value)
+                    .into_iter()
+                    .count()
+                    == expected
+            });
+        self.engine
+            .register_fn("none", move |arr: rhai::Array, v: T| {
+                let value: C = v.into();
+                arr.iter()
+                    .filter(|a| is_call(a))
+                    .map(|a| {
+                        let a: C = as_call(&a).unwrap().into();
+                        a
+                    })
+                    .filter(|a| *a == value)
+                    .into_iter()
+                    .count()
+                    == 0
+            });
+    }
+
+    fn register_comparison<
+        A: Variant + Clone + AsCast<C>,
+        B: Variant + Clone + AsCast<C>,
+        C: PartialEq + PartialOrd,
+    >(
+        &mut self,
+    ) {
+        self.engine
+            .register_fn(">", |left: A, right: B| left.as_cast() > right.as_cast());
+        self.engine
+            .register_fn(">=", |left: A, right: B| left.as_cast() >= right.as_cast());
+        self.engine
+            .register_fn("<", |left: A, right: B| left.as_cast() < right.as_cast());
+        self.engine
+            .register_fn("<=", |left: A, right: B| left.as_cast() <= right.as_cast());
+        self.engine
+            .register_fn("!=", |left: A, right: B| left.as_cast() != right.as_cast());
+        self.engine
+            .register_fn("==", |left: A, right: B| left.as_cast() == right.as_cast());
+
+        self.engine
+            .register_fn(">", |left: B, right: A| left.as_cast() > right.as_cast());
+        self.engine
+            .register_fn(">=", |left: B, right: A| left.as_cast() >= right.as_cast());
+        self.engine
+            .register_fn("<", |left: B, right: A| left.as_cast() < right.as_cast());
+        self.engine
+            .register_fn("<=", |left: B, right: A| left.as_cast() <= right.as_cast());
+        self.engine
+            .register_fn("!=", |left: B, right: A| left.as_cast() != right.as_cast());
+        self.engine
+            .register_fn("==", |left: B, right: A| left.as_cast() == right.as_cast());
+    }
+
+    fn register_options<T: Variant + Clone>(&mut self) {
+        self.engine
+            .register_fn("is_some", crate::internal::script_is_some::<T>)
+            .register_fn("unwrap", crate::internal::script_unwrap::<T>)
+            .register_fn("unwrap_or", crate::internal::script_unwrap_or::<T>);
+    }
 }
 
 impl FormattingEngine {
@@ -297,9 +491,7 @@ impl FormattingEngine {
     /// A new, pre-configured, `FormattingEngine` instance.
     #[must_use]
     pub fn new(debug: bool) -> Self {
-        let messages = Rc::new(RefCell::new(Vec::new()));
-        let engine = build_engine(messages.clone(), debug);
-        Self { engine, messages }
+        build_engine(debug)
     }
 
     /// Registers a custom type with the Rhai engine.
@@ -316,8 +508,8 @@ impl FormattingEngine {
     /// A mutable reference to `self` to allow method chaining.
     pub fn register_type<T: Variant + Clone>(&mut self) -> &mut Self {
         self.engine.register_type::<T>();
-        register_options!(self.engine, (T));
-        register_vec!(self.engine, (T));
+        self.register_vec::<T>();
+        self.register_options::<T>();
 
         self
     }
@@ -335,9 +527,9 @@ impl FormattingEngine {
     ///
     /// A mutable reference to `self` to allow method chaining.
     pub fn make_comparable<T: Variant + PartialEq + Clone>(&mut self) -> &mut Self {
-        self.engine.register_type::<T>();
-        register_options!(self.engine, (T));
-        register_vec!(self.engine, (T));
+        self.register_type::<T>();
+        self.register_options::<T>();
+        self.register_vec::<T>();
         self.register_fn("any", crate::internal::script_any_type::<T>)
             .register_fn("all", crate::internal::script_all_type::<T>)
             .register_fn("none", crate::internal::script_none_type::<T>);
@@ -453,7 +645,7 @@ impl FormattingEngine {
     ) -> ScriptResult<String> {
         match std::fs::read_to_string(script.as_ref()) {
             Ok(script) => self.format_with_scope(scope, &script),
-            Err(e) => Err(format!("{e}").into()),
+            Err(e) => Err(e.to_string().into()),
         }
     }
 
@@ -525,14 +717,14 @@ impl FormattingEngine {
     ) -> ScriptResult<String> {
         match std::fs::read_to_string(script.as_ref()) {
             Ok(script) => self.format(name, data, &script),
-            Err(e) => Err(format!("{e}").into()),
+            Err(e) => Err(e.to_string().into()),
         }
     }
 }
 
 #[allow(clippy::too_many_lines)]
-fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
-    let mut engine = Engine::new();
+fn build_engine(debug: bool) -> FormattingEngine {
+    let mut engine = FormattingEngine::new(debug);
     engine.set_max_expr_depths(128, 64);
 
     let package = CorePackage::new();
@@ -589,16 +781,44 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
 
     engine.register_iterator::<Vec<serde_value::Value>>();
 
-    register_options!(
-        engine,
-        (
-            &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128,
-            f32, f64
-        )
-    );
+    engine.register_options::<&str>();
+    engine.register_options::<String>();
+    engine.register_options::<bool>();
+    engine.register_options::<i64>();
+    engine.register_options::<u64>();
+    engine.register_options::<i32>();
+    engine.register_options::<u32>();
+    engine.register_options::<i16>();
+    engine.register_options::<u16>();
+    engine.register_options::<i8>();
+    engine.register_options::<u8>();
+    engine.register_options::<usize>();
+    engine.register_options::<isize>();
+    engine.register_options::<i128>();
+    engine.register_options::<u128>();
+    engine.register_options::<f32>();
+    engine.register_options::<f64>();
 
-    register_type_dynamic::<i8, i64>(&mut engine, Dynamic::is_int, Dynamic::as_int);
-    register_type_dynamic::<i64, i64>(&mut engine, Dynamic::is_int, Dynamic::as_int);
+    engine.register_type_dynamic::<i8, i64>(Dynamic::is_int, Dynamic::as_int);
+    engine.register_type_dynamic::<i16, i64>(Dynamic::is_int, Dynamic::as_int);
+    engine.register_type_dynamic::<i32, i64>(Dynamic::is_int, Dynamic::as_int);
+    engine.register_type_dynamic::<i64, i64>(Dynamic::is_int, Dynamic::as_int);
+
+    engine.register_type_dynamic::<u8, i64>(Dynamic::is_int, Dynamic::as_int);
+    engine.register_type_dynamic::<u16, i64>(Dynamic::is_int, Dynamic::as_int);
+    engine.register_type_dynamic::<u32, i64>(Dynamic::is_int, Dynamic::as_int);
+
+    engine.register_type_dynamic::<f32, f64>(Dynamic::is_float, Dynamic::as_float);
+    engine.register_type_dynamic::<f64, f64>(Dynamic::is_float, Dynamic::as_float);
+
+    engine.register_type_dynamic::<bool, bool>(Dynamic::is_bool, Dynamic::as_bool);
+
+    fn dynamic_as_string(dynamic: &Dynamic) -> Result<String, &'static str> {
+        dynamic.to_owned().into_string()
+    }
+
+    engine.register_type_dynamic::<String, String>(Dynamic::is_string, dynamic_as_string);
+    engine.register_type_dynamic::<&str, String>(Dynamic::is_string, dynamic_as_string);
 
     engine
         .register_fn("join", crate::internal::script_join)
@@ -656,217 +876,143 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
         .register_fn("none", crate::internal::script_none)
         .register_fn("none", crate::internal::script_none_void);
 
-    macro_rules! register_msg_single {
-        ($($T: ty),*) => {
-            $(
-            {
-                let messages = messages.clone();
-                engine.register_fn("-", move |msg: $T| {
-                    messages.borrow_mut().push(format!("{msg}"));
-                });
-            }
+    engine.register_msg_single::<&str>();
+    engine.register_msg_single::<String>();
+    engine.register_msg_single::<bool>();
+    engine.register_msg_single::<i64>();
+    engine.register_msg_single::<u64>();
+    engine.register_msg_single::<i32>();
+    engine.register_msg_single::<u32>();
+    engine.register_msg_single::<i16>();
+    engine.register_msg_single::<u16>();
+    engine.register_msg_single::<i8>();
+    engine.register_msg_single::<u8>();
+    engine.register_msg_single::<usize>();
+    engine.register_msg_single::<isize>();
+    engine.register_msg_single::<i128>();
+    engine.register_msg_single::<u128>();
+    engine.register_msg_single::<f32>();
+    engine.register_msg_single::<f64>();
 
-            {
-                let messages = messages.clone();
-                engine.register_fn("-", move |msg: Option<$T>| {
-                    if let Some(msg) = msg {
-                        messages.borrow_mut().push(format!("{msg}"));
-                    }
-                });
-            }
-            )*
-        };
-    }
+    engine.register_msg::<&str>();
+    engine.register_msg::<String>();
+    engine.register_msg::<bool>();
+    engine.register_msg::<i64>();
+    engine.register_msg::<u64>();
+    engine.register_msg::<i32>();
+    engine.register_msg::<u32>();
+    engine.register_msg::<i16>();
+    engine.register_msg::<u16>();
+    engine.register_msg::<i8>();
+    engine.register_msg::<u8>();
+    engine.register_msg::<usize>();
+    engine.register_msg::<isize>();
+    engine.register_msg::<i128>();
+    engine.register_msg::<u128>();
+    engine.register_msg::<f32>();
+    engine.register_msg::<f64>();
 
-    register_msg_single!(
-        &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-        f64
-    );
+    engine.register_comparison::<u8, u8, u8>();
+    engine.register_comparison::<u8, u16, u16>();
+    engine.register_comparison::<u8, u32, u32>();
+    engine.register_comparison::<u8, u64, u64>();
+    engine.register_comparison::<u8, usize, u128>();
+    engine.register_comparison::<u8, u128, u128>();
 
-    macro_rules! register_msg_multi {
-        ($A: ty, ($($B: ty),*)) => {
-            $(
-            {
-                engine.register_fn("++", move |a: $A, b: $B| {
-                    vec![
-                        format!("{a}"),
-                        format!("{b}"),
-                    ]
-                });
-            }
+    engine.register_comparison::<u16, u16, u16>();
+    engine.register_comparison::<u16, u32, u32>();
+    engine.register_comparison::<u16, u64, u64>();
+    engine.register_comparison::<u16, usize, u128>();
+    engine.register_comparison::<u16, u128, u128>();
 
-            {
-                engine.register_fn("++", move |b: $B, a: $A| {
-                    vec![
-                        format!("{b}"),
-                        format!("{a}"),
-                    ]
-                });
-            }
+    engine.register_comparison::<u32, u32, u32>();
+    engine.register_comparison::<u32, u64, u64>();
+    engine.register_comparison::<u32, usize, u128>();
+    engine.register_comparison::<u32, u128, u128>();
 
-            {
-                engine.register_fn("++", move |a: Option<$A>, b: $B| {
-                    if let Some(a) = a {
-                        vec![
-                            format!("{a}"),
-                            format!("{b}"),
-                        ]
-                    } else {
-                        vec![
-                            format!("{b}"),
-                        ]
-                    }
-                });
-            }
+    engine.register_comparison::<u64, u64, u64>();
+    engine.register_comparison::<u64, usize, u128>();
+    engine.register_comparison::<u64, u128, u128>();
 
-            {
-                engine.register_fn("++", move |a: $A, b: Option<$B>| {
-                    if let Some(b) = b {
-                        vec![
-                            format!("{a}"),
-                            format!("{b}"),
-                        ]
-                    } else {
-                        vec![
-                            format!("{a}"),
-                        ]
-                    }
-                });
-            }
+    engine.register_comparison::<usize, usize, u128>();
+    engine.register_comparison::<usize, u128, u128>();
 
-            {
-                engine.register_fn("++", move |a: Option<$A>, b: Option<$B>| {
-                    match (a, b) {
-                        (Some(a), Some(b)) => vec![format!("{a}"), format!("{b}")],
-                        (Some(a), None) => vec![format!("{a}")],
-                        (None, Some(b)) => vec![format!("{b}")],
-                        (None, None) => vec![],
-                    }
-                });
-            }
-            )*
-        };
-    }
+    engine.register_comparison::<u128, u128, u128>();
 
-    macro_rules! register_msg {
-        ($($T: ty),*) => {
-            $(
-                register_msg_single!($T);
-                register_msg_multi!($T,
-                    (&str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32, f64
-                    )
-                );
-            )*
-        }
-    }
+    engine.register_comparison::<i8, i8, i8>();
+    engine.register_comparison::<i8, i16, i16>();
+    engine.register_comparison::<i8, i32, i32>();
+    engine.register_comparison::<i8, i64, i64>();
+    engine.register_comparison::<i8, isize, i128>();
+    engine.register_comparison::<i8, i128, i128>();
 
-    register_msg!(
-        &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-        f64
-    );
+    engine.register_comparison::<i16, i16, i16>();
+    engine.register_comparison::<i16, i32, i32>();
+    engine.register_comparison::<i16, i64, i64>();
+    engine.register_comparison::<i8, isize, i128>();
+    engine.register_comparison::<i16, i128, i128>();
 
-    macro_rules! register_comparison {
-        ($(($A: ty, $B: ty, $C: ty)),*) => {
-            $(
-            engine.register_fn(">",  |left: $A, right: $B| (left as $C) >  (right as $C));
-            engine.register_fn(">=", |left: $A, right: $B| (left as $C) >= (right as $C));
-            engine.register_fn("<",  |left: $A, right: $B| (left as $C) <  (right as $C));
-            engine.register_fn("<=", |left: $A, right: $B| (left as $C) <= (right as $C));
-            engine.register_fn("!=", |left: $A, right: $B| (left as $C) != (right as $C));
-            engine.register_fn("==", |left: $A, right: $B| (left as $C) == (right as $C));
+    engine.register_comparison::<i32, i32, i32>();
+    engine.register_comparison::<i32, i64, i64>();
+    engine.register_comparison::<i32, isize, i128>();
+    engine.register_comparison::<i32, i128, i128>();
 
-            engine.register_fn(">",  |left: $B, right: $A| (left as $C) >  (right as $C));
-            engine.register_fn(">=", |left: $B, right: $A| (left as $C) >= (right as $C));
-            engine.register_fn("<",  |left: $B, right: $A| (left as $C) <  (right as $C));
-            engine.register_fn("<=", |left: $B, right: $A| (left as $C) <= (right as $C));
-            engine.register_fn("!=", |left: $B, right: $A| (left as $C) != (right as $C));
-            engine.register_fn("==", |left: $B, right: $A| (left as $C) == (right as $C));
+    engine.register_comparison::<i64, i64, i64>();
+    engine.register_comparison::<i64, isize, i128>();
+    engine.register_comparison::<i64, i128, i128>();
 
-            )*
-        };
-    }
+    engine.register_comparison::<isize, isize, i128>();
+    engine.register_comparison::<isize, i128, i128>();
 
-    register_comparison!(
-        (u8, u16, u16),
-        (u8, u32, u32),
-        (u8, u64, u64),
-        (u16, u32, u32),
-        (u16, u64, u64),
-        (u32, u64, u64),
-        (i8, i16, i16),
-        (i8, i32, i32),
-        (i8, i64, i64),
-        (i16, i32, i32),
-        (i16, i64, i64),
-        (i32, i64, i64),
-        (i64, usize, i128),
-        (i32, usize, i128),
-        (i16, usize, i128),
-        (i8, usize, i128),
-        (u64, usize, usize),
-        (u32, usize, usize),
-        (u16, usize, usize),
-        (u8, usize, usize),
-        (f32, f64, f64)
-    );
+    engine.register_comparison::<i128, i128, i128>();
 
-    macro_rules! register_value_right {
-        ($($A: ty),*) => {
-            $(
-            {
-                engine.register_fn("++", move |a: $A, b: serde_value::Value| {
-                    vec![
-                        format!("{a}"),
-                        serde_json::to_string(&b).unwrap()
-                    ]
-                });
-            }
-            )*
-        };
-    }
+    engine.register_comparison::<f32, f32, f32>();
+    engine.register_comparison::<f32, f64, f64>();
 
-    macro_rules! register_value_left {
-        ($($B: ty),*) => {
-            $(
-            {
-                engine.register_fn("++", move |a: serde_value::Value, b: $B| {
-                    vec![
-                        serde_json::to_string(&a).unwrap(),
-                        format!("{b}")
-                    ]
-                });
-            }
-            )*
-        };
-    }
+    engine.register_comparison::<u8, f32, f32>();
+    engine.register_comparison::<u16, f32, f32>();
+    engine.register_comparison::<u32, f64, f64>();
 
-    macro_rules! register_value {
-        ($($T: ty),*) => {
-            $(
-            register_value_left!($T);
-            register_value_right!($T);
-            )*
-        };
-    }
+    engine.register_comparison::<i8, f32, f32>();
+    engine.register_comparison::<i16, f32, f32>();
+    engine.register_comparison::<i32, f64, f64>();
+
+    engine.register_value::<&str>();
+    engine.register_value::<String>();
+    engine.register_value::<bool>();
+    engine.register_value::<i64>();
+    engine.register_value::<u64>();
+    engine.register_value::<i32>();
+    engine.register_value::<u32>();
+    engine.register_value::<i16>();
+    engine.register_value::<u16>();
+    engine.register_value::<i8>();
+    engine.register_value::<u8>();
+    engine.register_value::<usize>();
+    engine.register_value::<isize>();
+    engine.register_value::<i128>();
+    engine.register_value::<u128>();
+    engine.register_value::<f32>();
+    engine.register_value::<f64>();
 
     fn dynamic_to_string(value: Dynamic) -> ScriptResult<String> {
         if value.is_string() {
             Ok(value.into_string()?)
         } else if value.is_char() {
-            Ok(value.as_char().map(|b| b.to_string())?)
+            Ok(value.as_char().as_ref().map(ToString::to_string)?)
         } else if value.is_int() {
-            Ok(value.as_int().map(|b| b.to_string())?)
+            Ok(value.as_int().as_ref().map(ToString::to_string)?)
         } else if value.is_float() {
-            Ok(value.as_float().map(|b| b.to_string())?)
+            Ok(value.as_float().as_ref().map(ToString::to_string)?)
         } else if value.is_bool() {
-            Ok(value.as_bool().map(|b| b.to_string())?)
+            Ok(value.as_bool().as_ref().map(ToString::to_string)?)
         } else {
             Err(format!("Unsupported type: {}", value.type_name()).into())
         }
     }
 
     {
-        let messages = messages.clone();
+        let messages = engine.clone_messages();
         engine.register_fn("-", move |msg: Dynamic| -> ScriptResult<()> {
             if msg.is_array() {
                 let arr = msg.into_array().unwrap();
@@ -881,18 +1027,13 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
     }
 
     {
-        let messages = messages.clone();
+        let messages = engine.clone_messages();
         engine.register_fn("-", move |msg: serde_value::Value| {
             messages
                 .borrow_mut()
                 .push(serde_json::to_string(&msg).unwrap());
         });
     }
-
-    register_value!(
-        &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-        f64
-    );
 
     engine.register_fn("++", move |a: serde_value::Value, b: serde_value::Value| {
         vec![
@@ -901,97 +1042,50 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
         ]
     });
 
-    macro_rules! register_string_concat_void {
-        ($($T: ty),*) => {$({
-            engine.register_fn("++", move |a: $T, _b: ()| {
-                vec![
-                    format!("{a}"),
-                ]
-            });
-        }
-        {
-            engine.register_fn("++", move |_a: (), b: $T| {
-                vec![
-                    format!("{b}"),
-                ]
-            });
-        }
-        )*};
-    }
+    engine.register_concat::<&str>();
+    engine.register_concat::<String>();
+    engine.register_concat::<bool>();
+    engine.register_concat::<i64>();
+    engine.register_concat::<u64>();
+    engine.register_concat::<i32>();
+    engine.register_concat::<u32>();
+    engine.register_concat::<i16>();
+    engine.register_concat::<u16>();
+    engine.register_concat::<i8>();
+    engine.register_concat::<u8>();
+    engine.register_concat::<usize>();
+    engine.register_concat::<isize>();
+    engine.register_concat::<i128>();
+    engine.register_concat::<u128>();
+    engine.register_concat::<f32>();
+    engine.register_concat::<f64>();
 
-    macro_rules! register_string_concat {
-        ($($T: ty),*) => {$({
-            engine.register_fn("++", move |a: $T, b: &str| {
-                vec![
-                    format!("{a}"),
-                    format!("{b}")
-                ]
-            });
-        }
-        {
-            engine.register_fn("++", move |a: &str, b: $T| {
-                vec![
-                    format!("{a}"),
-                    format!("{b}")
-                ]
-            });
-        }
-        {
-            engine.register_fn("++", move |a: $T, b: $T| {
-                vec![
-                    format!("{a}"),
-                    format!("{b}")
-                ]
-            });
-        })*};
-    }
+    engine.register_vec_printable::<&str>();
+    engine.register_vec_printable::<String>();
+    engine.register_vec_printable::<bool>();
+    engine.register_vec_printable::<i64>();
+    engine.register_vec_printable::<u64>();
+    engine.register_vec_printable::<i32>();
+    engine.register_vec_printable::<u32>();
+    engine.register_vec_printable::<i16>();
+    engine.register_vec_printable::<u16>();
+    engine.register_vec_printable::<i8>();
+    engine.register_vec_printable::<u8>();
+    engine.register_vec_printable::<usize>();
+    engine.register_vec_printable::<isize>();
+    engine.register_vec_printable::<i128>();
+    engine.register_vec_printable::<u128>();
+    engine.register_vec_printable::<f32>();
+    engine.register_vec_printable::<f64>();
 
-    macro_rules! register_string_concat_vec {
-        ($($T: ty),*) => {$({
-            engine.register_fn("++", move |a: Vec<$T>, b: &str| {
-                a.iter().map(|m| format!("{m}")).chain(once(b.to_owned())).collect::<Vec<_>>()
-            });
-        }
-        {
-            engine.register_fn("++", move |a: &str, b: Vec<$T>| {
-                b.iter().map(|m| format!("{m}")).chain(once(a.to_owned())).collect::<Vec<_>>()
-            });
-        }
-        {
-            engine.register_fn("++", move |a: Vec<$T>, b: Vec<$T>| {
-                a.iter().map(|m| format!("{m}")).chain(b.iter().map(|m| format!("{m}"))).collect::<Vec<_>>()
-            });
-        })*};
-    }
-
-    macro_rules! register_concat {
-        ($($T: ty),*) => {{
-            register_string_concat!($($T),*);
-            register_string_concat_vec!($($T),*);
-            register_string_concat_void!($($T),*);
-        }};
-    }
-
-    register_concat!(
-        &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128, f32,
-        f64
-    );
-    register_vec_printable!(
-        engine,
-        (
-            &str, String, bool, i64, u64, i32, u32, i16, u16, i8, u8, usize, isize, i128, u128,
-            f32, f64
-        )
-    );
-
-    register_vec!(engine, (()));
+    engine.register_vec::<()>();
 
     engine
         .register_fn("any", crate::internal::script_any_type::<bool>)
         .register_fn("all", crate::internal::script_any_type::<bool>)
         .register_fn("none", crate::internal::script_any_type::<bool>)
         .register_fn("++", move |(): (), b: &str| vec![b.to_owned()])
-        .register_fn("++", move |(): (), b: usize| vec![format!("{b}")])
+        .register_fn("++", move |(): (), b: usize| vec![b.to_string()])
         .register_custom_operator("++", 15)
         .unwrap()
         .register_custom_operator("then_emit", 20)
@@ -1032,3 +1126,48 @@ fn build_engine(messages: Rc<RefCell<Vec<String>>>, debug: bool) -> Engine {
 
     engine
 }
+
+macro_rules! impl_as_cast {
+    ($A: ty, ($($B: ty),*)) => {
+        $(
+            impl AsCast<$B> for $A {
+                fn as_cast(self) -> $B {
+                    self as $B
+                }
+            }
+        )*
+    }
+}
+
+trait AsCast<T> {
+    fn as_cast(self) -> T;
+}
+
+impl_as_cast!(u8, (u8, u16, u32, u64, u128, usize));
+impl_as_cast!(i8, (i8, i16, i32, i64, i128, isize));
+
+impl_as_cast!(u16, (u16, u32, u64, u128, usize));
+impl_as_cast!(i16, (i16, i32, i64, i128, isize));
+
+impl_as_cast!(u32, (u32, u64, u128, usize));
+impl_as_cast!(i32, (i32, i64, i128, isize));
+
+impl_as_cast!(u64, (u64, u128));
+impl_as_cast!(i64, (i64, i128));
+
+impl_as_cast!(usize, (usize, u128));
+impl_as_cast!(isize, (isize, i128));
+
+impl_as_cast!(u128, (u128));
+impl_as_cast!(i128, (i128));
+
+impl_as_cast!(f32, (f32, f64));
+impl_as_cast!(f64, (f64));
+
+impl_as_cast!(u8, (f32, f64));
+impl_as_cast!(u16, (f32, f64));
+impl_as_cast!(u32, (f64));
+
+impl_as_cast!(i8, (f32, f64));
+impl_as_cast!(i16, (f32, f64));
+impl_as_cast!(i32, (f64));
