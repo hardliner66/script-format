@@ -1,9 +1,9 @@
 use std::any::TypeId;
 use std::time::Instant;
 
-use rhai::{Array, Dynamic, ImmutableString, Map, FLOAT, INT};
+use rhai::{Array, CustomType, Dynamic, ImmutableString, Map, TypeBuilder, FLOAT, INT};
 
-use crate::ScriptResult;
+use crate::engine::ScriptResult;
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn script_is_some<T>(opt: Option<T>) -> bool {
@@ -70,36 +70,96 @@ pub fn script_is_string(_: &str) -> bool {
     true
 }
 
-pub fn script_any(arr: &Array) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(arr.iter().any(|b| b.as_bool().unwrap()))
-    } else {
-        Err("any only takes bool values".into())
-    }
+fn is_true(b: bool) -> bool {
+    b
 }
 
-pub fn script_all(arr: &Array) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(arr.iter().all(|b| b.as_bool().unwrap()))
-    } else {
-        Err("all only takes bool values".into())
-    }
+pub fn script_any_void(arr: &Vec<Dynamic>) -> bool {
+    arr.iter()
+        .filter(|a| a.is_bool())
+        .filter(|a| a.as_bool().unwrap())
+        .count()
+        > 0
 }
 
-pub fn script_none(arr: &Array) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(!arr.iter().any(|b| b.as_bool().unwrap()))
-    } else {
-        Err("none only takes bool values".into())
-    }
+pub fn script_any_type<T: PartialEq>(arr: &Vec<T>, v: T) -> bool {
+    arr.iter().map(|a| a == &v).any(is_true)
+}
+
+pub fn script_any(arr: &Vec<Dynamic>, v: rhai::Dynamic) -> ScriptResult<bool> {
+    let values: ScriptResult<Vec<bool>> = arr
+        .iter()
+        .map(|a| script_value_equals(a.clone(), v.clone()))
+        .collect();
+    Ok(values?.into_iter().any(is_true))
+}
+
+pub fn script_all_void(arr: &Vec<Dynamic>) -> bool {
+    let expected = arr.len();
+    arr.iter()
+        .filter(|a| a.is_bool())
+        .filter(|a| a.as_bool().unwrap())
+        .count()
+        == expected
+}
+
+pub fn script_all_type<T: PartialEq>(arr: &Vec<T>, v: T) -> bool {
+    arr.iter().map(|a| a == &v).all(is_true)
+}
+
+pub fn script_all(arr: &Vec<Dynamic>, v: rhai::Dynamic) -> ScriptResult<bool> {
+    let values: ScriptResult<Vec<bool>> = arr
+        .iter()
+        .map(|a| script_value_equals(a.clone(), v.clone()))
+        .collect();
+    Ok(values?.into_iter().all(is_true))
+}
+
+pub fn script_none_void(arr: &Vec<Dynamic>) -> bool {
+    arr.iter()
+        .filter(|a| a.is_bool())
+        .filter(|a| a.as_bool().unwrap())
+        .count()
+        == 0
+}
+
+pub fn script_none_type<T: PartialEq>(arr: &Vec<T>, v: T) -> bool {
+    !arr.iter().map(|a| a == &v).all(is_true)
+}
+
+pub fn script_none(arr: &Vec<Dynamic>, v: rhai::Dynamic) -> ScriptResult<bool> {
+    let values: ScriptResult<Vec<bool>> = arr
+        .iter()
+        .map(|a| script_value_equals(a.clone(), v.clone()))
+        .collect();
+    Ok(!values?.into_iter().all(is_true))
+}
+
+#[derive(Clone, CustomType)]
+pub struct ToBe {
+    count: INT,
+    value: Dynamic,
+}
+
+pub fn script_to_be(count: INT, value: Dynamic) -> ToBe {
+    ToBe { count, value }
 }
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-pub fn script_require(arr: &Array, n: INT) -> ScriptResult<bool> {
-    if arr.iter().all(rhai::Dynamic::is::<bool>) {
-        Ok(arr.iter().filter(|b| b.as_bool().unwrap()).count() == n as usize)
+pub fn script_require(arr: Array, tb: ToBe) -> ScriptResult<bool> {
+    let values: ScriptResult<Vec<_>> = arr
+        .iter()
+        .map(|a| script_value_equals(a.clone(), tb.value.clone()))
+        .collect();
+    let count = values?.into_iter().filter(|b: &bool| is_true(*b)).count();
+    if count == tb.count as usize {
+        Ok(true)
     } else {
-        Err("none only takes bool values".into())
+        Err(format!(
+            "Value \"{}\" expected {} times but got only {count}!",
+            tb.value, tb.count
+        )
+        .into())
     }
 }
 

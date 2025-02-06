@@ -1,4 +1,7 @@
 {
+    "rust-analyzer.checkOnSave": false,
+    "rust-analyzer.check.command": "check",
+    "rust-analyzer.check.extraArgs": [],
     "cSpell.words": [
         "rhai",
         "rsplitn",

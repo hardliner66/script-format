@@ -177,8 +177,53 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    macro_rules! register_contains {
+        ($engine: expr, ($(($T: ty, $Variant: ident),)*)) => {
+            $(
+            $engine.register_fn("contains", |s: serde_value::Value, v: $T| match s {
+                serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::$Variant(v.into())),
+                serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::$Variant(v.into())),
+                _ => false,
+            });
+            )*
+        };
+    }
+
+    register_contains!(
+        engine,
+        (
+            (bool, Bool),
+            (i8, I8),
+            (u8, U8),
+            (u16, U16),
+            (i16, I16),
+            (u32, U32),
+            (i32, I32),
+            (u64, U64),
+            (i64, I64),
+            (char, Char),
+        )
+    );
+
     engine
         .register_type::<serde_value::Value>()
+        .register_fn("contains", |s: serde_value::Value, v: &str| match s {
+            serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::String(v.into())),
+            serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::String(v.into())),
+            serde_value::Value::String(str) => str.contains(v),
+            _ => false,
+        })
+        .register_fn(
+            "contains",
+            |s: serde_value::Value, v: serde_value::Value| match (s, v) {
+                (serde_value::Value::Map(map), v) => map.contains_key(&v),
+                (serde_value::Value::Seq(seq), v) => seq.contains(&v),
+                (serde_value::Value::String(str), serde_value::Value::String(sub)) => {
+                    str.contains(&sub)
+                }
+                _ => false,
+            },
+        )
         .register_indexer_get(index_value_bool)
         .register_indexer_get(index_value_u8)
         .register_indexer_get(index_value_u16)
@@ -195,14 +240,17 @@ fn main() -> anyhow::Result<()> {
         .register_indexer_get(index_value_unit)
         .register_indexer_get(index_value_string);
 
-    let formatted = engine.format_from_file("data", data, script).unwrap();
-
-    match output {
-        Some(ref output) => {
-            std::fs::write(output, formatted).unwrap();
-        }
-        None => {
-            println!("{formatted}");
+    match engine.format_from_file("data", data, script) {
+        Ok(formatted) => match output {
+            Some(ref output) => {
+                std::fs::write(output, formatted).unwrap();
+            }
+            None => {
+                println!("{formatted}");
+            }
+        },
+        Err(err) => {
+            eprintln!("Error formatting data: {}", err);
         }
     }
 
