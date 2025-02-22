@@ -1,3 +1,4 @@
+use std::any::TypeId;
 use std::cell::RefCell;
 use std::iter::once;
 use std::ops::Deref;
@@ -8,7 +9,7 @@ use std::rc::Rc;
 use rhai::CustomType;
 use rhai::{
     packages::{CorePackage, Package},
-    Dynamic, Engine, EvalAltResult, Scope, Variant,
+    Dynamic, Engine, EvalAltResult, ImmutableString, Scope, Variant, FLOAT, INT,
 };
 
 use crate::internal::ToBe;
@@ -48,7 +49,7 @@ pub type ScriptResult<T> = Result<T, Box<EvalAltResult>>;
 /// use script_format::FormattingEngine;
 ///
 /// let mut engine = FormattingEngine::new(false);
-/// let result = engine.format("name", "World", "- `Hello, ${name}!`");
+/// let result = engine.format("name", "World", "~ `Hello, ${name}!`");
 /// assert_eq!(result.unwrap(), "Hello, World!");
 /// ```
 ///
@@ -74,6 +75,13 @@ impl DerefMut for FormattingEngine {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.engine
     }
+}
+
+#[inline(always)]
+fn minus_deprecation() {
+    eprintln!(
+        "Using '-' for printing is deprecated and will be removed in future versions. Use '~' instead."
+    )
 }
 
 impl FormattingEngine {
@@ -195,6 +203,7 @@ impl FormattingEngine {
         {
             let messages = self.clone_messages();
             self.engine.register_fn("-", move |msg: T| {
+                minus_deprecation();
                 messages.borrow_mut().push(msg.to_string());
             });
         }
@@ -202,6 +211,7 @@ impl FormattingEngine {
         {
             let messages = self.clone_messages();
             self.engine.register_fn("-", move |msg: Option<T>| {
+                minus_deprecation();
                 if let Some(msg) = msg {
                     messages.borrow_mut().push(msg.to_string());
                 }
@@ -593,28 +603,6 @@ impl FormattingEngine {
         scope.push_constant("NL", "\n");
 
         self.messages.borrow_mut().clear();
-        let mut new_script = Vec::new();
-        let mut line = String::new();
-        let mut is_line_start = true;
-        for c in script.chars() {
-            if c == ';' {
-                is_line_start = true;
-            } else if c == '\n' {
-                if is_line_start
-                    && !line.trim().starts_with("-")
-                    && (line.contains("++")
-                        || line.contains("then_emit")
-                        || line.contains("or_emit"))
-                {
-                    line = format!("- {}", line);
-                }
-                is_line_start = false;
-                new_script.push(line);
-                line = String::new();
-            } else {
-                line.push(c);
-            }
-        }
         self.engine.run_with_scope(scope, script)?;
 
         Ok(self.messages.borrow().join(""))
@@ -722,6 +710,105 @@ impl FormattingEngine {
     }
 }
 
+fn option_to_string<T: std::fmt::Display>(value: Option<T>) -> Option<String> {
+    if let Some(v) = value {
+        Some(format!("{v}"))
+    } else {
+        None
+    }
+}
+
+fn dynamic_to_string(v: Dynamic) -> ScriptResult<Option<String>> {
+    let t = v.type_id();
+    if t == TypeId::of::<()>() {
+        Ok(None)
+    } else if v.is_array() {
+        let flattened = flatten_dynamic(v)?;
+        if flattened.len() > 0 {
+            Ok(Some(flattened.join("")))
+        } else {
+            Ok(None)
+        }
+    } else if t == TypeId::of::<Option<&str>>() {
+        Ok(option_to_string::<&str>(v.cast()))
+    } else if t == TypeId::of::<Option<bool>>() {
+        Ok(option_to_string::<bool>(v.cast()))
+    } else if t == TypeId::of::<Option<i8>>() {
+        Ok(option_to_string::<i8>(v.cast()))
+    } else if t == TypeId::of::<Option<i16>>() {
+        Ok(option_to_string::<i16>(v.cast()))
+    } else if t == TypeId::of::<Option<i32>>() {
+        Ok(option_to_string::<i32>(v.cast()))
+    } else if t == TypeId::of::<Option<i64>>() {
+        Ok(option_to_string::<i64>(v.cast()))
+    } else if t == TypeId::of::<Option<i128>>() {
+        Ok(option_to_string::<i128>(v.cast()))
+    } else if t == TypeId::of::<Option<u8>>() {
+        Ok(option_to_string::<u8>(v.cast()))
+    } else if t == TypeId::of::<Option<u16>>() {
+        Ok(option_to_string::<u16>(v.cast()))
+    } else if t == TypeId::of::<Option<u32>>() {
+        Ok(option_to_string::<u32>(v.cast()))
+    } else if t == TypeId::of::<Option<u64>>() {
+        Ok(option_to_string::<u64>(v.cast()))
+    } else if t == TypeId::of::<Option<f32>>() {
+        Ok(option_to_string::<f32>(v.cast()))
+    } else if t == TypeId::of::<Option<f64>>() {
+        Ok(option_to_string::<f64>(v.cast()))
+    } else if t == TypeId::of::<Option<u128>>() {
+        Ok(option_to_string::<u128>(v.cast()))
+    } else if t == TypeId::of::<Option<char>>() {
+        Ok(option_to_string::<char>(v.cast()))
+    } else if t == TypeId::of::<Option<String>>() {
+        Ok(if let Some(v) = v.cast::<Option<String>>() {
+            Some(v)
+        } else {
+            None
+        })
+    } else if t == TypeId::of::<Option<Dynamic>>() {
+        Ok(if let Some(v) = v.cast::<Option<Dynamic>>() {
+            dynamic_to_string(v)?
+        } else {
+            None
+        })
+    } else if t == TypeId::of::<bool>() {
+        Ok(Some(v.as_bool()?.to_string()))
+    } else if t == TypeId::of::<ImmutableString>() {
+        Ok(Some(v.into_immutable_string()?.to_string()))
+    } else if t == TypeId::of::<char>() {
+        Ok(Some(v.as_char()?.to_string()))
+    } else if t == TypeId::of::<INT>() {
+        Ok(Some(v.as_int()?.to_string()))
+    } else if t == TypeId::of::<FLOAT>() {
+        Ok(Some(v.as_float()?.to_string()))
+    } else {
+        eprintln!("{}", v.type_name());
+        Err("unsupported type".into())
+    }
+}
+
+fn flatten_dynamic(vs: Dynamic) -> Result<Vec<String>, Box<EvalAltResult>> {
+    let mut res = Vec::new();
+    if vs.is_array() {
+        for v in vs.into_array()? {
+            if v.is_array() {
+                let mut values = flatten_dynamic(v)?;
+                res.append(&mut values);
+            } else {
+                if let Some(s) = dynamic_to_string(v)? {
+                    res.push(s);
+                }
+            }
+        }
+    } else if vs.type_id() == TypeId::of::<Vec<String>>() {
+        let mut vs = vs.cast::<Vec<String>>();
+        res.append(&mut vs);
+    } else if let Some(s) = dynamic_to_string(vs)? {
+        res.push(s);
+    }
+    Ok(res)
+}
+
 #[allow(clippy::too_many_lines)]
 fn build_engine(debug: bool) -> FormattingEngine {
     let mut engine = FormattingEngine {
@@ -733,6 +820,27 @@ fn build_engine(debug: bool) -> FormattingEngine {
     let package = CorePackage::new();
 
     engine.register_global_module(package.as_shared_module());
+
+    // Register the custom syntax
+    {
+        let messages = engine.clone_messages();
+        engine
+            .register_custom_syntax(
+                ["~", "$expr$"],
+                true,
+                move |context: &mut rhai::EvalContext,
+                      inputs: &[rhai::Expression]|
+                      -> ScriptResult<Dynamic> {
+                    for e in inputs {
+                        let result = context.eval_expression_tree(&e)?;
+                        let mut m = flatten_dynamic(result)?;
+                        messages.borrow_mut().append(&mut m);
+                    }
+                    Ok(Dynamic::UNIT)
+                },
+            )
+            .unwrap();
+    }
 
     let indent = Rc::new(RefCell::new("    ".to_owned()));
 
@@ -998,32 +1106,21 @@ fn build_engine(debug: bool) -> FormattingEngine {
     engine.register_value::<f32>();
     engine.register_value::<f64>();
 
-    fn dynamic_to_string(value: Dynamic) -> ScriptResult<String> {
-        if value.is_string() {
-            Ok(value.into_string()?)
-        } else if value.is_char() {
-            Ok(value.as_char().as_ref().map(ToString::to_string)?)
-        } else if value.is_int() {
-            Ok(value.as_int().as_ref().map(ToString::to_string)?)
-        } else if value.is_float() {
-            Ok(value.as_float().as_ref().map(ToString::to_string)?)
-        } else if value.is_bool() {
-            Ok(value.as_bool().as_ref().map(ToString::to_string)?)
-        } else {
-            Err(format!("Unsupported type: {}", value.type_name()).into())
-        }
-    }
-
     {
         let messages = engine.clone_messages();
         engine.register_fn("-", move |msg: Dynamic| -> ScriptResult<()> {
+            minus_deprecation();
             if msg.is_array() {
                 let arr = msg.into_array().unwrap();
                 for m in arr {
-                    messages.borrow_mut().push(dynamic_to_string(m)?);
+                    if let Some(msg) = dynamic_to_string(m)? {
+                        messages.borrow_mut().push(msg);
+                    }
                 }
             } else {
-                messages.borrow_mut().push(dynamic_to_string(msg)?);
+                if let Some(msg) = dynamic_to_string(msg)? {
+                    messages.borrow_mut().push(msg);
+                }
             }
             Ok(())
         });
@@ -1032,6 +1129,7 @@ fn build_engine(debug: bool) -> FormattingEngine {
     {
         let messages = engine.clone_messages();
         engine.register_fn("-", move |msg: serde_value::Value| {
+            minus_deprecation();
             messages
                 .borrow_mut()
                 .push(serde_json::to_string(&msg).unwrap());

@@ -9,7 +9,8 @@
 //!
 //! - **Custom Operators:** Extended with operators like `++`, `and`, `or`, `xor`,
 //!   `contains`, `equals`, `require`, `then_emit`, and `or_emit` for expressive scripts.
-//! - **Value/Text Emission:** Use `-` to emit a single value and `++` to emit multiple values.
+//! - **Value/Text Emission:** Use `~` to emit a single value
+//! - **Concatenate multiple values:** Use `++` to stringify and concatenate multiple values.
 //! - **Conditional Emission:** The `then_emit` and `or_emit` operators allow conditional value emission
 //!   based on boolean conditions.
 //! - **Indentation Control:** `IND` and `SET_INDENT` functions to manage indentation dynamically.
@@ -18,10 +19,10 @@
 //!
 //! # DSL Overview
 //!
-//! - `- <value>`: Emits a value.
-//! - `<a> ++ <b>`: Emits values `a` and `b`.
-//! - `<condition> then_emit(<value>)`: Emits `<value>` if `<condition>` is true.
-//! - `<condition> or_emit(<value>)`: Emits `<value>` if `<condition>` is false.
+//! - `~ <value>`: Emits a value.
+//! - `<a> ++ <b>`: Concatenates values `a` and `b`.
+//! - `<condition> then_emit <value>`: Returns `<value>` if `<condition>` is true.
+//! - `<condition> or_emit <value>`: Returns `<value>` if `<condition>` is false.
 //! - `SET_INDENT(<string>)`: Sets the current indent string.
 //! - `IND(<count>)`: Returns the currently set indent string for `<count>` times.
 //! - `NL(<count>)`: Returns `<count>` newlines.

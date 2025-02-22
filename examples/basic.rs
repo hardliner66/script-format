@@ -23,17 +23,17 @@ fn main() {
     };
 
     let script = r#"
-SET_INDENT(".. ");                                       // sets the current indent string to ".. "
-- "Person Details:";                                     // - emits a single message
-- NL;                                                    // NL emits a newline
-IND ++ "Name: " ++ person.name ++ NL;                    // ++ emits the message and concatenates it
+SET_INDENT(".. ");                         // sets the current indent string to ".. "
+~ "Person Details:";                       // - emits a single message
+~ NL;                                      // NL emits a newline
+~ IND ++ "Name: " ++ person.name ++ NL;    // ++ emits the message and concatenates it
 
 // custom operator then_emit emits a message conditionally
-IND(2) ++ person.name contains "Alice" then_emit "- Hello Alice" ++ NL;
+~ IND(2) ++ person.name contains "Alice" then_emit "- Hello Alice" ++ NL;
 
-IND ++ "Age: " ++ person.age ++ NL;                      // ++ automatically converts the values to strings
-- IND(2);                                                // custom operator IND indents the message
-person.age > 18 then_emit "- Adult" ++ NL;               // custom operator then_emit emits a message conditionally
+~ IND ++ "Age: " ++ person.age ++ NL;      // ++ automatically converts the values to strings
+~ IND(2);                                  // custom operator IND indents the message
+person.age > 18 then_emit "- Adult" ++ NL; // custom operator then_emit emits a message conditionally
 
 [1, 2, 3] contains 2 then_emit "- Contains 2" ++ NL;
 [1, 2, 3] any 2 then_emit "- Some values are 2" ++ NL;

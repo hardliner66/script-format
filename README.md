@@ -16,7 +16,7 @@ This allows for a really nice way to express what should get output:
 let some_number = 1;
 
 // will output 'Test 1'
-"Test " ++ some_number;
+~ "Test " ++ some_number;
 ```
 
 There are also a two more conveniences, namely `NL` and `IND`.
