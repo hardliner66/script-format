@@ -233,6 +233,7 @@ impl FormattingEngine {
     }
 
     fn register_vec_printable<T: Variant + Clone + std::fmt::Display>(&mut self) {
+        self.register_vec::<T>();
         self.engine.register_fn("++", move |a: Vec<T>| {
             a.iter().map(ToString::to_string).collect::<Vec<_>>()
         });
