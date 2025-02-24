@@ -200,23 +200,35 @@ impl FormattingEngine {
     }
 
     fn register_msg_single<T: Variant + Clone + std::fmt::Display>(&mut self) {
-        {
-            let messages = self.clone_messages();
-            self.engine.register_fn("-", move |msg: T| {
-                minus_deprecation();
-                messages.borrow_mut().push(msg.to_string());
-            });
-        }
+        let messages = self.clone_messages();
+        self.engine.register_fn("-", move |msg: T| {
+            minus_deprecation();
+            messages.borrow_mut().push(msg.to_string());
+        });
 
-        {
-            let messages = self.clone_messages();
-            self.engine.register_fn("-", move |msg: Option<T>| {
-                minus_deprecation();
-                if let Some(msg) = msg {
-                    messages.borrow_mut().push(msg.to_string());
-                }
-            });
-        }
+        self.engine.register_fn("++", move |a: Option<T>, _: ()| {
+            if let Some(a) = a {
+                vec![a.to_string()]
+            } else {
+                vec![]
+            }
+        });
+
+        self.engine.register_fn("++", move |_: (), a: Option<T>| {
+            if let Some(a) = a {
+                vec![a.to_string()]
+            } else {
+                vec![]
+            }
+        });
+
+        let messages = self.clone_messages();
+        self.engine.register_fn("-", move |msg: Option<T>| {
+            minus_deprecation();
+            if let Some(msg) = msg {
+                messages.borrow_mut().push(msg.to_string());
+            }
+        });
     }
 
     fn register_vec<T: Variant + Clone>(&mut self) {
@@ -801,6 +813,10 @@ fn flatten_dynamic(vs: Dynamic) -> Result<Vec<String>, Box<EvalAltResult>> {
                 }
             }
         }
+    } else if vs.type_id() == TypeId::of::<Option<Vec<String>>>() {
+        if let Some(mut vs) = vs.cast::<Option<Vec<String>>>() {
+            res.append(&mut vs);
+        }
     } else if vs.type_id() == TypeId::of::<Vec<String>>() {
         let mut vs = vs.cast::<Vec<String>>();
         res.append(&mut vs);
@@ -1127,15 +1143,13 @@ fn build_engine(debug: bool) -> FormattingEngine {
         });
     }
 
-    {
-        let messages = engine.clone_messages();
-        engine.register_fn("-", move |msg: serde_value::Value| {
-            minus_deprecation();
-            messages
-                .borrow_mut()
-                .push(serde_json::to_string(&msg).unwrap());
-        });
-    }
+    let messages = engine.clone_messages();
+    engine.register_fn("-", move |msg: serde_value::Value| {
+        minus_deprecation();
+        messages
+            .borrow_mut()
+            .push(serde_json::to_string(&msg).unwrap());
+    });
 
     engine.register_fn("++", move |a: serde_value::Value, b: serde_value::Value| {
         vec![
@@ -1187,7 +1201,8 @@ fn build_engine(debug: bool) -> FormattingEngine {
         .register_fn("all", crate::internal::script_any_type::<bool>)
         .register_fn("none", crate::internal::script_any_type::<bool>)
         .register_fn("++", move |(): (), b: &str| vec![b.to_owned()])
-        .register_fn("++", move |(): (), b: usize| vec![b.to_string()])
+        .register_fn("++", move |(): (), b: usize| vec![b.to_string()]);
+    engine
         .register_custom_operator("++", 15)
         .unwrap()
         .register_custom_operator("then_emit", 20)
@@ -1202,6 +1217,16 @@ fn build_engine(debug: bool) -> FormattingEngine {
                 }
             },
         )
+        .register_fn(
+            "then_emit",
+            move |a: bool, msg: Vec<String>| {
+                if a {
+                    msg
+                } else {
+                    Vec::new()
+                }
+            },
+        )
         .register_custom_operator("or_emit", 20)
         .unwrap()
         .register_fn(
@@ -1211,6 +1236,16 @@ fn build_engine(debug: bool) -> FormattingEngine {
                     Some(msg.to_owned())
                 } else {
                     None
+                }
+            },
+        )
+        .register_fn(
+            "or_emit",
+            move |a: bool, msg: Vec<String>| {
+                if a {
+                    msg
+                } else {
+                    Vec::new()
                 }
             },
         );

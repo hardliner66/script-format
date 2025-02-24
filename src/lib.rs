@@ -9,7 +9,7 @@
 //!
 //! - **Custom Operators:** Extended with operators like `++`, `and`, `or`, `xor`,
 //!   `contains`, `equals`, `require`, `then_emit`, and `or_emit` for expressive scripts.
-//! - **Value/Text Emission:** Use `~` to emit a single value
+//! - **Value/Text Emission:** Use `~` to print the expression to the right
 //! - **Concatenate multiple values:** Use `++` to stringify and concatenate multiple values.
 //! - **Conditional Emission:** The `then_emit` and `or_emit` operators allow conditional value emission
 //!   based on boolean conditions.
@@ -19,7 +19,7 @@
 //!
 //! # DSL Overview
 //!
-//! - `~ <value>`: Emits a value.
+//! - `~ <expr>`: Prints the result of the expression.
 //! - `<a> ++ <b>`: Concatenates values `a` and `b`.
 //! - `<condition> then_emit <value>`: Returns `<value>` if `<condition>` is true.
 //! - `<condition> or_emit <value>`: Returns `<value>` if `<condition>` is false.
@@ -34,9 +34,6 @@
 //! - `<vector> any <value>`: Checks if any of the values in `<vector>` is equal to `<value>`.
 //! - `<vector> all <value>`: Checks if all of the values in `<vector>` are equal to `<value>`.
 //! - `<vector> none <value>`: Checks if none of the values in `<vector>` are equal to `<value>`.
-//! - `<a> and <b>`: Logical AND operation.
-//! - `<a> or <b>`: Logical OR operation.
-//! - `<a> xor <b>`: Logical XOR operation.
 //!
 //! # DSL Example
 //!

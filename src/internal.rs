@@ -214,7 +214,6 @@ pub fn script_value_equals(v1: Dynamic, v2: Dynamic) -> ScriptResult<bool> {
     } else if t1 == TypeId::of::<Instant>() {
         Ok(v1.cast::<Instant>() == v2.cast::<Instant>())
     } else {
-        println!("1");
         Err("unsupported type".into())
     }
 }

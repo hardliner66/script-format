@@ -13,7 +13,7 @@ struct Person {
 
 fn main() {
     // Create a new `FormattingEngine` instance with debug mode disabled
-    let mut engine = FormattingEngine::new(false);
+    let mut engine = FormattingEngine::new(true);
     // Register the custom type so the Rhai engine can access it
     engine.build_type::<Person>();
 
@@ -29,16 +29,16 @@ SET_INDENT(".. ");                         // sets the current indent string to 
 ~ IND ++ "Name: " ++ person.name ++ NL;    // ++ emits the message and concatenates it
 
 // custom operator then_emit emits a message conditionally
-~ IND(2) ++ person.name contains "Alice" then_emit "- Hello Alice" ++ NL;
+~ IND(2) ++ person.name contains "Alice" then_emit ("- Hello Alice" ++ NL);
 
 ~ IND ++ "Age: " ++ person.age ++ NL;      // ++ automatically converts the values to strings
 ~ IND(2);                                  // custom operator IND indents the message
-person.age > 18 then_emit "- Adult" ++ NL; // custom operator then_emit emits a message conditionally
+~ person.age > 18 then_emit ("- Adult" ++ NL); // custom operator then_emit emits a message conditionally
 
-[1, 2, 3] contains 2 then_emit "- Contains 2" ++ NL;
-[1, 2, 3] any 2 then_emit "- Some values are 2" ++ NL;
-[1, 2, 3] all 2 then_emit "- All values are 2" ++ NL;
-[1, 2, 3] none 2 then_emit "- No 2 found" ++ NL;
+~ [1, 2, 3] contains 2 then_emit ("- Contains 2" ++ NL);
+~ [1, 2, 3] any 2 then_emit ("- Some values are 2" ++ NL);
+~ [1, 2, 3] all 2 then_emit ("- All values are 2" ++ NL);
+~ [1, 2, 3] none 2 then_emit ("- No 2 found" ++ NL);
 "#;
 
     let expected = r#"
@@ -49,8 +49,8 @@ Person Details:
 .. .. - Adult
 - Contains 2
 - Some values are 2
-    "#
-    .trim();
+"#
+    .trim_start();
 
     // Execute the Rhai script to format the person's details
     let result = engine.format("person", person, script);
