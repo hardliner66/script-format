@@ -6,5 +6,9 @@
         "rhai",
         "rsplitn",
         "splitn"
-    ]
+    ],
+    "editor.formatOnType": true,
+    "[commonlisp]": {
+        "editor.wordSeparators": "`|;:'\",()"
+    }
 }
