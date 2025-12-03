@@ -9,10 +9,16 @@ use std::rc::Rc;
 use rhai::CustomType;
 use rhai::{
     packages::{CorePackage, Package},
+    plugin::*,
     Dynamic, Engine, EvalAltResult, ImmutableString, Scope, Variant, FLOAT, INT,
 };
 
 use crate::internal::ToBe;
+
+#[export_module]
+mod script_format {
+    pub const NL: &str = "\n";
+}
 
 /// A type alias for the result of script execution within the `FormattingEngine`.
 ///
@@ -592,8 +598,6 @@ impl FormattingEngine {
     ///
     /// A formatted string result.
     pub fn format_with_scope(&mut self, scope: &mut Scope, script: &str) -> ScriptResult<String> {
-        scope.push_constant("NL", "\n");
-
         self.messages.borrow_mut().clear();
         self.engine.run_with_scope(scope, script)?;
 
@@ -814,8 +818,10 @@ fn build_engine(debug: bool) -> FormattingEngine {
     engine.set_max_expr_depths(128, 64);
 
     let package = CorePackage::new();
-
     engine.register_global_module(package.as_shared_module());
+
+    let module = exported_module!(script_format);
+    engine.register_global_module(module.into());
 
     // Register the custom syntax
     {
