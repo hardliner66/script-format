@@ -77,13 +77,6 @@ impl DerefMut for FormattingEngine {
     }
 }
 
-#[inline(always)]
-fn minus_deprecation() {
-    eprintln!(
-        "Using '-' for printing is deprecated and will be removed in future versions. Use '~' instead."
-    )
-}
-
 impl FormattingEngine {
     fn register_value<T: Variant + Clone + std::fmt::Display>(&mut self) {
         self.engine
@@ -200,12 +193,6 @@ impl FormattingEngine {
     }
 
     fn register_msg_single<T: Variant + Clone + std::fmt::Display>(&mut self) {
-        let messages = self.clone_messages();
-        self.engine.register_fn("-", move |msg: T| {
-            minus_deprecation();
-            messages.borrow_mut().push(msg.to_string());
-        });
-
         self.engine.register_fn("++", move |a: Option<T>, _: ()| {
             if let Some(a) = a {
                 vec![a.to_string()]
@@ -219,14 +206,6 @@ impl FormattingEngine {
                 vec![a.to_string()]
             } else {
                 vec![]
-            }
-        });
-
-        let messages = self.clone_messages();
-        self.engine.register_fn("-", move |msg: Option<T>| {
-            minus_deprecation();
-            if let Some(msg) = msg {
-                messages.borrow_mut().push(msg.to_string());
             }
         });
     }
@@ -1122,34 +1101,6 @@ fn build_engine(debug: bool) -> FormattingEngine {
     engine.register_value::<u128>();
     engine.register_value::<f32>();
     engine.register_value::<f64>();
-
-    {
-        let messages = engine.clone_messages();
-        engine.register_fn("-", move |msg: Dynamic| -> ScriptResult<()> {
-            minus_deprecation();
-            if msg.is_array() {
-                let arr = msg.into_array().unwrap();
-                for m in arr {
-                    if let Some(msg) = dynamic_to_string(m)? {
-                        messages.borrow_mut().push(msg);
-                    }
-                }
-            } else {
-                if let Some(msg) = dynamic_to_string(msg)? {
-                    messages.borrow_mut().push(msg);
-                }
-            }
-            Ok(())
-        });
-    }
-
-    let messages = engine.clone_messages();
-    engine.register_fn("-", move |msg: serde_value::Value| {
-        minus_deprecation();
-        messages
-            .borrow_mut()
-            .push(serde_json::to_string(&msg).unwrap());
-    });
 
     engine.register_fn("++", move |a: serde_value::Value, b: serde_value::Value| {
         vec![
