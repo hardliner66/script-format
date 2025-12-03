@@ -177,33 +177,56 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    macro_rules! register_contains {
-        ($engine: expr, ($(($T: ty, $Variant: ident),)*)) => {
-            $(
-            $engine.register_fn("contains", |s: serde_value::Value, v: $T| match s {
-                serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::$Variant(v.into())),
-                serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::$Variant(v.into())),
-                _ => false,
-            });
-            )*
-        };
-    }
-
-    register_contains!(
-        engine,
-        (
-            (bool, Bool),
-            (i8, I8),
-            (u8, U8),
-            (u16, U16),
-            (i16, I16),
-            (u32, U32),
-            (i32, I32),
-            (u64, U64),
-            (i64, I64),
-            (char, Char),
-        )
-    );
+    engine.register_fn("contains", |s: serde_value::Value, v: bool| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::Bool(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::Bool(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: i8| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::I8(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::I8(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: u8| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::U8(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::U8(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: u16| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::U16(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::U16(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: i16| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::I16(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::I16(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: u32| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::U32(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::U32(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: i32| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::I32(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::I32(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: u64| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::U64(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::U64(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: i64| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::I64(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::I64(v.into())),
+        _ => false,
+    });
+    engine.register_fn("contains", |s: serde_value::Value, v: char| match s {
+        serde_value::Value::Map(map) => map.contains_key(&serde_value::Value::Char(v.into())),
+        serde_value::Value::Seq(seq) => seq.contains(&serde_value::Value::Char(v.into())),
+        _ => false,
+    });
 
     engine
         .register_type::<serde_value::Value>()

@@ -1215,47 +1215,280 @@ fn build_engine(debug: bool) -> FormattingEngine {
     engine
 }
 
-macro_rules! impl_as_cast {
-    ($A: ty, ($($B: ty),*)) => {
-        $(
-            impl AsCast<$B> for $A {
-                fn as_cast(self) -> $B {
-                    self as $B
-                }
-            }
-        )*
-    }
-}
-
 trait AsCast<T> {
     fn as_cast(self) -> T;
 }
 
-impl_as_cast!(u8, (u8, u16, u32, u64, u128, usize));
-impl_as_cast!(i8, (i8, i16, i32, i64, i128, isize));
+impl AsCast<u8> for u8 {
+    fn as_cast(self) -> u8 {
+        self as u8
+    }
+}
+impl AsCast<u16> for u8 {
+    fn as_cast(self) -> u16 {
+        self as u16
+    }
+}
+impl AsCast<u32> for u8 {
+    fn as_cast(self) -> u32 {
+        self as u32
+    }
+}
+impl AsCast<u64> for u8 {
+    fn as_cast(self) -> u64 {
+        self as u64
+    }
+}
+impl AsCast<u128> for u8 {
+    fn as_cast(self) -> u128 {
+        self as u128
+    }
+}
+impl AsCast<usize> for u8 {
+    fn as_cast(self) -> usize {
+        self as usize
+    }
+}
+impl AsCast<i8> for i8 {
+    fn as_cast(self) -> i8 {
+        self as i8
+    }
+}
+impl AsCast<i16> for i8 {
+    fn as_cast(self) -> i16 {
+        self as i16
+    }
+}
+impl AsCast<i32> for i8 {
+    fn as_cast(self) -> i32 {
+        self as i32
+    }
+}
+impl AsCast<i64> for i8 {
+    fn as_cast(self) -> i64 {
+        self as i64
+    }
+}
+impl AsCast<i128> for i8 {
+    fn as_cast(self) -> i128 {
+        self as i128
+    }
+}
+impl AsCast<isize> for i8 {
+    fn as_cast(self) -> isize {
+        self as isize
+    }
+}
 
-impl_as_cast!(u16, (u16, u32, u64, u128, usize));
-impl_as_cast!(i16, (i16, i32, i64, i128, isize));
+impl AsCast<u16> for u16 {
+    fn as_cast(self) -> u16 {
+        self as u16
+    }
+}
+impl AsCast<u32> for u16 {
+    fn as_cast(self) -> u32 {
+        self as u32
+    }
+}
+impl AsCast<u64> for u16 {
+    fn as_cast(self) -> u64 {
+        self as u64
+    }
+}
+impl AsCast<u128> for u16 {
+    fn as_cast(self) -> u128 {
+        self as u128
+    }
+}
+impl AsCast<usize> for u16 {
+    fn as_cast(self) -> usize {
+        self as usize
+    }
+}
+impl AsCast<i16> for i16 {
+    fn as_cast(self) -> i16 {
+        self as i16
+    }
+}
+impl AsCast<i32> for i16 {
+    fn as_cast(self) -> i32 {
+        self as i32
+    }
+}
+impl AsCast<i64> for i16 {
+    fn as_cast(self) -> i64 {
+        self as i64
+    }
+}
+impl AsCast<i128> for i16 {
+    fn as_cast(self) -> i128 {
+        self as i128
+    }
+}
+impl AsCast<isize> for i16 {
+    fn as_cast(self) -> isize {
+        self as isize
+    }
+}
 
-impl_as_cast!(u32, (u32, u64, u128, usize));
-impl_as_cast!(i32, (i32, i64, i128, isize));
+impl AsCast<u32> for u32 {
+    fn as_cast(self) -> u32 {
+        self as u32
+    }
+}
+impl AsCast<u64> for u32 {
+    fn as_cast(self) -> u64 {
+        self as u64
+    }
+}
+impl AsCast<u128> for u32 {
+    fn as_cast(self) -> u128 {
+        self as u128
+    }
+}
+impl AsCast<usize> for u32 {
+    fn as_cast(self) -> usize {
+        self as usize
+    }
+}
+impl AsCast<i32> for i32 {
+    fn as_cast(self) -> i32 {
+        self as i32
+    }
+}
+impl AsCast<i64> for i32 {
+    fn as_cast(self) -> i64 {
+        self as i64
+    }
+}
+impl AsCast<i128> for i32 {
+    fn as_cast(self) -> i128 {
+        self as i128
+    }
+}
+impl AsCast<isize> for i32 {
+    fn as_cast(self) -> isize {
+        self as isize
+    }
+}
 
-impl_as_cast!(u64, (u64, u128));
-impl_as_cast!(i64, (i64, i128));
+impl AsCast<u64> for u64 {
+    fn as_cast(self) -> u64 {
+        self as u64
+    }
+}
+impl AsCast<u128> for u64 {
+    fn as_cast(self) -> u128 {
+        self as u128
+    }
+}
+impl AsCast<i64> for i64 {
+    fn as_cast(self) -> i64 {
+        self as i64
+    }
+}
+impl AsCast<i128> for i64 {
+    fn as_cast(self) -> i128 {
+        self as i128
+    }
+}
 
-impl_as_cast!(usize, (usize, u128));
-impl_as_cast!(isize, (isize, i128));
+impl AsCast<usize> for usize {
+    fn as_cast(self) -> usize {
+        self as usize
+    }
+}
+impl AsCast<u128> for usize {
+    fn as_cast(self) -> u128 {
+        self as u128
+    }
+}
+impl AsCast<isize> for isize {
+    fn as_cast(self) -> isize {
+        self as isize
+    }
+}
+impl AsCast<i128> for isize {
+    fn as_cast(self) -> i128 {
+        self as i128
+    }
+}
 
-impl_as_cast!(u128, (u128));
-impl_as_cast!(i128, (i128));
+impl AsCast<u128> for u128 {
+    fn as_cast(self) -> u128 {
+        self as u128
+    }
+}
+impl AsCast<i128> for i128 {
+    fn as_cast(self) -> i128 {
+        self as i128
+    }
+}
 
-impl_as_cast!(f32, (f32, f64));
-impl_as_cast!(f64, (f64));
+impl AsCast<f32> for f32 {
+    fn as_cast(self) -> f32 {
+        self as f32
+    }
+}
+impl AsCast<f64> for f32 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
+impl AsCast<f64> for f64 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
 
-impl_as_cast!(u8, (f32, f64));
-impl_as_cast!(u16, (f32, f64));
-impl_as_cast!(u32, (f64));
+impl AsCast<f32> for u8 {
+    fn as_cast(self) -> f32 {
+        self as f32
+    }
+}
+impl AsCast<f64> for u8 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
+impl AsCast<f32> for u16 {
+    fn as_cast(self) -> f32 {
+        self as f32
+    }
+}
+impl AsCast<f64> for u16 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
+impl AsCast<f64> for u32 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
 
-impl_as_cast!(i8, (f32, f64));
-impl_as_cast!(i16, (f32, f64));
-impl_as_cast!(i32, (f64));
+impl AsCast<f32> for i8 {
+    fn as_cast(self) -> f32 {
+        self as f32
+    }
+}
+impl AsCast<f64> for i8 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
+impl AsCast<f32> for i16 {
+    fn as_cast(self) -> f32 {
+        self as f32
+    }
+}
+impl AsCast<f64> for i16 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
+impl AsCast<f64> for i32 {
+    fn as_cast(self) -> f64 {
+        self as f64
+    }
+}
